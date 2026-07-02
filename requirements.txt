@@ -1,0 +1,8 @@
+pandapower>=3.0
+numpy
+scipy
+pyyaml
+numba
+torch
+pandas
+matplotlib
