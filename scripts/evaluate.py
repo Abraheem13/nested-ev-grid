@@ -15,6 +15,10 @@ import yaml
 from nflev.env.charging_env import ChargingEnv
 from nflev.baselines.simple import UncoordinatedPolicy, TOUPolicy, run_baseline_episode
 from nflev.baselines.milp import run_milp_episode
+from nflev.baselines.flat_ddpg import FlatDDPG
+from nflev.baselines.hrl import HRLBaseline
+from nflev.agents.ppo_lagrangian import PPOLagrangian
+from nflev.agents.cpo import CPO
 from nflev.training.trainer import NestedTrainer
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -39,7 +43,10 @@ def make_env(cfg, network, ds, scen: dict, seed: int, disable_q=False):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--methods", nargs="+",
-                    default=["uncoordinated", "tou", "milp", "nested"])
+                    default=["uncoordinated", "tou", "milp", "nested"],
+                    help="uncoordinated tou milp nested flat_ddpg ppo_lag cpo hrl")
+    ap.add_argument("--baseline_ckpts", default="results",
+                    help="dir containing {method}_{network}_{dataset}_s0/final[.pt]")
     ap.add_argument("--scenarios", nargs="+", default=["S3"])
     ap.add_argument("--checkpoint", default=None)
     ap.add_argument("--episodes", type=int, default=50)
@@ -52,6 +59,17 @@ def main():
     ds = yaml.safe_load(open(ROOT / f"configs/dataset/{args.dataset}.yaml"))
     price = price_profile(ds.get("price_source", "pjm"))
     scen_defs = cfg["evaluation"]["scenarios"]
+
+    learners = {}
+    for meth, cls in [("flat_ddpg", FlatDDPG), ("ppo_lag", PPOLagrangian),
+                      ("cpo", CPO), ("hrl", HRLBaseline)]:
+        if meth in args.methods:
+            ag = cls(cfg)
+            if meth in ("ppo_lag", "cpo"):
+                ag._cfg = cfg
+            ck = pathlib.Path(args.baseline_ckpts) / f"{meth}_{args.network}_{args.dataset}_s0"
+            ag.load(str(ck / "final") if meth == "hrl" else str(ck / "final.pt"))
+            learners[meth] = ag
 
     trainer = None
     if "nested" in args.methods:
@@ -94,6 +112,14 @@ def main():
                                                 scenario=scen,
                                                 price_profile=price,
                                                 load_profile=LOAD_SHAPE)
+                    elif method in ("flat_ddpg", "hrl"):
+                        env = make_env(cfg, args.network, ds, scen, seed, disable_q=True)
+                        m = learners[method].run_episode(env, price, LOAD_SHAPE, train=False)
+                    elif method in ("ppo_lag", "cpo"):
+                        from train_baseline import run_onpolicy_episode
+                        env = make_env(cfg, args.network, ds, scen, seed, disable_q=True)
+                        m = run_onpolicy_episode(learners[method], env, price,
+                                                 LOAD_SHAPE, train=False)
                     else:
                         raise ValueError(method)
                     m.update(method=method, scenario=scen_name, episode=ep,

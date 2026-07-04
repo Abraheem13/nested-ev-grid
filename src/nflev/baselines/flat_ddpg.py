@@ -50,6 +50,12 @@ class FlatDDPG:
         viol = float(interval["v_min"] < 0.95 - 1e-9)
         return float(-cost / 10.0 - self.pen / 100.0 * viol - 20.0 * dep_unmet_sq)
 
+    def save(self, path):
+        self.agent.save(path)
+
+    def load(self, path):
+        self.agent.load(path)
+
     # ------------------------------------------------------------ episode
     def run_episode(self, env, price_profile, load_profile,
                     train: bool = True) -> dict:
