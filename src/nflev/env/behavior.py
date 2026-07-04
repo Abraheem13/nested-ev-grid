@@ -21,19 +21,27 @@ class FishbeinBehavior:
         self.rng = rng
         self.prev_accept_rate = 0.7  # social-norm bootstrap
 
-    def evaluate(self, evs: list, price: float) -> float:
+    def evaluate(self, evs: list, price: float, t_h: float | None = None) -> float:
         """Update per-EV `accepted` flags at a dispatch boundary.
         Returns realized acceptance rate (feeds A_bar for the next interval)."""
         connected = [e for e in evs if e.connected]
         if not connected:
             return self.prev_accept_rate
-        a_bar = self.prev_accept_rate
+        # social-norm floor: prevents a self-reinforcing acceptance collapse
+        # (A_bar -> 0) that has no behavioral basis for captive home charging
+        a_bar = max(0.3, self.prev_accept_rate)
         n_acc = 0
         for ev in connected:
             z = (ev.w_cost * (self.lambda_ref - price) / self.lambda_ref
                  + ev.w_norm * a_bar + ev.bias)
             p_acc = 1.0 / (1.0 + np.exp(-z))
             ev.accepted = bool(self.rng.random() < p_acc)
+            # deadline dominance: a driver whose remaining dwell barely covers
+            # the remaining energy need accepts regardless of price (attitude
+            # toward departure readiness outweighs cost in the Fishbein sum)
+            hrs_left = ev.departure_h - t_h if t_h is not None else 99.0
+            if ev.energy_needed_kwh > 0.7 * ev.p_max_kw * max(0.0, hrs_left):
+                ev.accepted = True
             n_acc += ev.accepted
         self.prev_accept_rate = n_acc / len(connected)
         return self.prev_accept_rate

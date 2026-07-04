@@ -38,7 +38,8 @@ class Curriculum:
         cost_ok = np.mean([m["daily_cost_usd"] for m in w]) < 400 * self.stage["penetration"] + 100
         qact_ok = np.mean([m["q_activation_freq"] for m in w]) < 0.30
         curt_ok = np.mean([m["curtailed_kwh"] for m in w]) < 5.0
-        if cost_ok and qact_ok and curt_ok:
+        sq_ok = np.mean([m["service_quality"] for m in w]) > 0.85
+        if cost_ok and qact_ok and curt_ok and sq_ok:
             self.idx += 1
             self.history.clear()
             return True
@@ -74,9 +75,20 @@ class NestedTrainer:
         return float(r)
 
     def _l2_reward(self, env, k: int, interval: dict, energy_cost: float,
-                   unmet_sq: float) -> float:
+                   unmet_sq: float, t_h: float) -> float:
+        # Dense shaping (fixes reward-hacking observed in run s0: SQ collapsed
+        # to 0.43 because the sparse departure-time penalty let the agent
+        # "save" money by not charging).
+        delivered_kwh = sum(env.agg_rates[k].values()) * 0.25
+        urgency_pen = 0.0
+        for ev in env.fleet.connected_by_aggregator(k):
+            need_frac = max(0.0, ev.soc_target - ev.soc)
+            hrs_left = max(0.25, ev.departure_h - t_h)
+            urgency_pen += (need_frac ** 2) / hrs_left
         return float(-self.r2["beta_cost"] * energy_cost
-                     - self.r2["beta_unmet"] * unmet_sq
+                     + 0.3 * delivered_kwh / 10.0
+                     - 4.0 * urgency_pen
+                     - self.r2["beta_unmet"] * 5.0 * unmet_sq
                      - 0.5 * interval["curtailed_kwh"])
 
     # ------------------------------------------------------------ episode
@@ -128,7 +140,8 @@ class NestedTrainer:
                     if ev.departed and ev.aggregator == k and ev.idx not in dep_seen:
                         unmet_sq += (max(0.0, ev.soc_target - ev.soc)) ** 2
                         dep_seen.add(ev.idx)
-                r2 = self._l2_reward(env, k, interval, energy_cost, unmet_sq)
+                r2 = self._l2_reward(env, k, interval, energy_cost, unmet_sq,
+                                     t_h=env.t_s / 3600.0)
                 if l2_prev[k] is not None and train:
                     ps, pa = l2_prev[k]
                     self.l2[k].store(ps, pa, r2, l2_states[k], i == n_intervals - 1)

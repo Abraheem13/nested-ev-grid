@@ -55,6 +55,9 @@ class ChargingEnv:
         self.pricing_s = sim["pricing_interval_s"]
         self.episode_h = self.mods.get("episode_hours", sim["episode_hours"])
         self.load_noise = sim["load_noise_sigma"]
+        # Noon-to-noon horizon: evening arrivals need the overnight valley
+        # inside the optimization window; a 00:00-24:00 episode strands them.
+        self.wall_offset_h = self.mods.get("wall_offset_h", 12.0)
 
         self.agg_buses = AGG_BUSES[network]
         self.n_agg = len(self.agg_buses)
@@ -87,6 +90,10 @@ class ChargingEnv:
         self.load_profile = load_profile
         self.t_s = 0
         self.evs = self.fleet.reset()
+        for ev in self.evs:  # wall clock -> episode time
+            dur = ev.departure_h - ev.arrival_h
+            ev.arrival_h = (ev.arrival_h - self.wall_offset_h) % 24
+            ev.departure_h = ev.arrival_h + dur
         self.logs: list[StepLog] = []
         # per-aggregator EV load elements + sgen for Q injection
         self.ev_load_idx, self.ev_sgen_idx = {}, {}
@@ -140,7 +147,8 @@ class ChargingEnv:
         return np.concatenate([np.array(head, dtype=np.float32), evf])
 
     def _lmp(self, t_h: float) -> float:
-        return float(self.price_profile[min(int(t_h), len(self.price_profile) - 1)])
+        wall = (t_h + self.wall_offset_h) % 24 + 24 * (t_h // 24)
+        return float(self.price_profile[min(int(wall), len(self.price_profile) - 1)])
 
     # --------------------------------------------------------------- actions
     def set_corridor(self, p_min: float, p_max: float):
@@ -161,8 +169,9 @@ class ChargingEnv:
         c_max = np.array([e.p_max_kw for e in evs])
         c = self.project(rates_raw[:n], c_max, self.p_cap)
         # zero-charging forcing window (deadlock experiment S6)
-        w = self.mods.get("force_zero_charging_window")
-        if w and w[0] <= self.t_s / 3600.0 < w[1]:
+        w = self.mods.get("force_zero_charging_window")  # wall-clock hours
+        wall_h = (self.t_s / 3600.0 + self.wall_offset_h) % 24
+        if w and w[0] <= wall_h < w[1]:
             c = np.zeros_like(c)
         self.agg_rates[k] = {e.idx: float(c[i]) * float(e.accepted) for i, e in enumerate(evs)}
 
@@ -173,7 +182,7 @@ class ChargingEnv:
         self.fleet.step_connections(t0_h)
         # L3a: behavioral response at the dispatch boundary
         mean_price = float(np.mean(self.exec_prices))
-        accept_rate = self.behavior.evaluate(self.evs, mean_price)
+        accept_rate = self.behavior.evaluate(self.evs, mean_price, t_h=t0_h)
 
         steps = self.dispatch_s // self.dt_s
         interval_cost = 0.0
@@ -184,7 +193,12 @@ class ChargingEnv:
             self._apply_loads(t_h)
             self._solved_pf()
             charger_map = self._charger_map()
-            res = self.qctl.correct(self.net, charger_map)
+            if self.mods.get("disable_q_control"):
+                from .qcontrol import QControlResult
+                v = float(self.net.res_bus.vm_pu.min())
+                res = QControlResult(v_min_pre=v, v_min_post=v)
+            else:
+                res = self.qctl.correct(self.net, charger_map)
             log = StepLog(
                 t_h=t_h, v_min=res.v_min_post, q_activated=res.activated,
                 q_injected_kvar=sum(res.q_injected_kvar.values()),
@@ -215,7 +229,8 @@ class ChargingEnv:
 
     # -------------------------------------------------------------- helpers
     def _apply_loads(self, t_h: float):
-        mult = self.load_profile[min(int(t_h), len(self.load_profile) - 1)]
+        wall = (t_h + self.wall_offset_h) % 24 + 24 * (t_h // 24)
+        mult = self.load_profile[min(int(wall), len(self.load_profile) - 1)]
         noise = self.rng.normal(1.0, self.load_noise)
         fnoise = self.mods.get("load_forecast_noise", 0.0)
         if fnoise:

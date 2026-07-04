@@ -1,0 +1,2 @@
+episode,stage,daily_cost_usd,min_voltage_pu,violation_rate_pct,service_quality,q_activation_freq,curtailed_kwh,peak_mw,wall_s
+0,0,37.94511724657913,0.9561738462404095,0.0,0.89057850351937,0.0,0.0,3.3038736055227655,15.1

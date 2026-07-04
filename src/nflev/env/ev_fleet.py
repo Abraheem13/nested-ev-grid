@@ -92,10 +92,14 @@ class FleetModel:
         return [e for e in self.evs if e.connected and e.aggregator == k]
 
     def service_quality(self) -> float:
-        """Delivered / requested energy over departed vehicles."""
+        """Delivered / requested energy over every vehicle that connected.
+        v1-style departed-only accounting was statistically broken for
+        overnight fleets: evening arrivals with ~12 h dwell depart after the
+        24 h horizon and were silently excluded, making SQ a small-sample
+        lottery over short-dwell vehicles."""
         req = deliv = 0.0
         for ev in self.evs:
-            if ev.departed and ev.initial_need_kwh > 0:
+            if (ev.departed or ev.connected) and ev.initial_need_kwh > 0:
                 req += ev.initial_need_kwh
                 deliv += ev.initial_need_kwh - ev.energy_needed_kwh
         return deliv / req if req > 0 else 1.0

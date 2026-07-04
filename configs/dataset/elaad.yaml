@@ -1,0 +1,17 @@
+# ElaadNL open transactions — mixed public/residential regime, longer dwell.
+# PROVISIONAL literature-informed parameters. Refit before final experiments:
+#   python -m nflev.data.loaders elaad path/to/elaadnl_transactions.csv
+name: elaad
+arrival_mu_h: 16.5
+arrival_sigma_h: 3.5
+arrival_min_h: 8.0
+arrival_max_h: 23.0
+duration_mu_h: 10.0
+duration_sigma_h: 4.0
+duration_min_h: 1.5
+duration_max_h: 20.0
+soc_init: [0.40, 0.16]
+soc_target: [0.85, 0.10]
+battery_kwh_classes: [40, 60, 75, 100]
+price_source: pjm
+provisional: true
