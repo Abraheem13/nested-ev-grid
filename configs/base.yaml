@@ -9,6 +9,7 @@ simulation:
   dispatch_interval_s: 900  # Level 2 decision interval (15 min)
   pricing_interval_s: 3600  # Level 1 decision interval (1 h)
   episode_hours: 24
+  use_lightsim: true   # auto-falls back to native if unavailable
   load_noise_sigma: 0.02    # per-step multiplicative household load noise
 
 voltage:

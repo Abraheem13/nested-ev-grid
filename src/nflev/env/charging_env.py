@@ -77,6 +77,13 @@ class ChargingEnv:
         self.project = PROJECTIONS[cfg["level2"]["action_projection"]]
         self.p_cap = cfg["level2"]["transformer_cap_kw"]
 
+        self._use_ls2g = False
+        try:
+            import lightsim2grid  # noqa: F401
+            from lightsim2grid import LightSimBackend  # noqa: F401
+            self._use_ls2g = cfg.get("simulation", {}).get("use_lightsim", True)
+        except Exception:
+            self._use_ls2g = False
         self._net_template = NETWORKS[network]()
         self.base_load_p = self._net_template.load.p_mw.values.copy()
         self.base_load_q = self._net_template.load.q_mvar.values.copy()
@@ -110,10 +117,14 @@ class ChargingEnv:
 
     # --------------------------------------------------------------- states
     def _solved_pf(self):
+        kw = {"lightsim2grid": True} if self._use_ls2g else {}
         try:
-            pp.runpp(self.net, init="results", numba=True)
+            pp.runpp(self.net, init="results", numba=True, **kw)
         except Exception:
-            pp.runpp(self.net, init="auto", numba=True)
+            try:
+                pp.runpp(self.net, init="auto", numba=True, **kw)
+            except Exception:
+                pp.runpp(self.net, init="auto", numba=True)
 
     def _l1_state(self) -> np.ndarray:
         self._apply_loads(self.t_s / 3600.0)
@@ -167,7 +178,10 @@ class ChargingEnv:
             self.agg_rates[k] = {}
             return
         c_max = np.array([e.p_max_kw for e in evs])
-        c = self.project(rates_raw[:n], c_max, self.p_cap)
+        r = np.asarray(rates_raw, dtype=float)
+        if len(r) < n:  # agents with fewer action slots than connected EVs
+            r = np.concatenate([r, np.zeros(n - len(r))])
+        c = self.project(r[:n], c_max, self.p_cap)
         # zero-charging forcing window (deadlock experiment S6)
         w = self.mods.get("force_zero_charging_window")  # wall-clock hours
         wall_h = (self.t_s / 3600.0 + self.wall_offset_h) % 24

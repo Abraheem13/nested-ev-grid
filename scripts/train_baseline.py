@@ -10,6 +10,10 @@ learned), matching the comparison protocol in the paper.
 """
 import argparse, csv, pathlib, sys, time
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
+import os
+for v in ('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS'):
+    os.environ.setdefault(v, '1')
+import torch; torch.set_num_threads(1)
 import numpy as np
 import yaml
 

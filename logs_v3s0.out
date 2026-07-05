@@ -10,3 +10,8 @@ ep  40 stage1 cost=$101 vmin=0.9517 Qact=0.00 curt=0.0
 ep  49 stage2 cost=$94 vmin=0.9538 Qact=0.00 curt=0.0 -> ADVANCED
 ep  50 stage2 cost=$134 vmin=0.9504 Qact=0.00 curt=0.0 
 ep  60 stage2 cost=$209 vmin=0.9500 Qact=0.01 curt=0.0 
+ep  69 stage3 cost=$216 vmin=0.9500 Qact=0.00 curt=0.0 -> ADVANCED
+ep  70 stage3 cost=$261 vmin=0.9500 Qact=0.02 curt=0.0 
+ep  80 stage3 cost=$257 vmin=0.9500 Qact=0.02 curt=0.0 
+ep  89 stage4 cost=$258 vmin=0.9510 Qact=0.00 curt=0.0 -> ADVANCED
+ep  90 stage4 cost=$270 vmin=0.9500 Qact=0.01 curt=0.0 
