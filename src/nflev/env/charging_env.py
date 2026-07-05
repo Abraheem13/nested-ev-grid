@@ -57,7 +57,7 @@ class ChargingEnv:
         self.load_noise = sim["load_noise_sigma"]
         # Noon-to-noon horizon: evening arrivals need the overnight valley
         # inside the optimization window; a 00:00-24:00 episode strands them.
-        self.wall_offset_h = self.mods.get("wall_offset_h", 12.0)
+        self.wall_offset_h = self.mods.get("wall_offset_h", dataset_cfg.get("wall_offset_h", 12.0))
 
         self.agg_buses = AGG_BUSES[network]
         self.n_agg = len(self.agg_buses)

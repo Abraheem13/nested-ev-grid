@@ -1,0 +1,133 @@
+curriculum:
+  advance_metrics:
+  - cost_threshold
+  - q_activation_freq
+  - curtailment_freq
+  advance_window_episodes: 20
+  stages:
+  - penetration: 0.2
+    stochastic: false
+    v_bounds:
+    - 0.9
+    - 1.1
+  - penetration: 0.4
+    stochastic: false
+    v_bounds:
+    - 0.93
+    - 1.07
+  - penetration: 0.6
+    stochastic: true
+    v_bounds:
+    - 0.95
+    - 1.05
+  - penetration: 0.8
+    stochastic: true
+    v_bounds:
+    - 0.95
+    - 1.05
+  - episode_hours: 48
+    penetration: 0.8
+    stochastic: true
+    v_bounds:
+    - 0.95
+    - 1.05
+device: auto
+evaluation:
+  n_episodes: 50
+  scenarios:
+    S1:
+      n_ev: 30
+      penetration: 0.4
+    S2:
+      n_ev: 50
+      penetration: 0.67
+    S3:
+      n_ev: 60
+      penetration: 0.8
+    S4:
+      load_forecast_noise: 0.15
+      n_ev: 60
+      penetration: 0.8
+    S5:
+      n_ev: 75
+      penetration: 1.0
+    S6_deadlock:
+      force_zero_charging_window:
+      - 19
+      - 20
+      n_ev: 60
+      penetration: 0.8
+    S7_q_exhaustion:
+      n_ev: 90
+      penetration: 1.2
+      s_rated_derate: 0.5
+level1:
+  min_corridor_width: 0.02
+  price_ceil: 0.3
+  price_floor: 0.05
+  reward:
+    alpha_cost: 1.0
+    alpha_sat: 5.0
+    alpha_thermal: 5.0
+    alpha_vind: 10.0
+    alpha_vsq: 50.0
+  state_dim: 8
+level2:
+  action_projection: simplex_scale
+  n_aggregators: 5
+  price_selection: true
+  reward:
+    beta_cost: 1.0
+    beta_unmet: 20.0
+  transformer_cap_kw: 500
+level3:
+  behavior:
+    bias:
+    - 0.0
+    - 0.5
+    lambda_ref: 0.15
+    w_cost:
+    - 5.0
+    - 1.0
+    w_norm:
+    - 2.0
+    - 0.5
+  behavior_interval_s: 900
+  q_control_interval_s: 1
+network_operating_point:
+  base_load_scale: 0.85
+  ext_grid_vm_pu: 1.03
+reactive_power:
+  charger_efficiency: 0.95
+  charger_p_max_kw: 11.0
+  curtailment_fallback: true
+  curtailment_step: 0.2
+  s_rated_kva: 12.0
+seed: 0
+simulation:
+  dispatch_interval_s: 900
+  episode_hours: 24
+  load_noise_sigma: 0.02
+  pricing_interval_s: 3600
+  resolution_s: 60
+  use_lightsim: true
+training:
+  ddpg:
+    batch: 64
+    buffer: 200000
+    lr_actor: 0.0001
+    lr_critic: 0.001
+    tau: 0.005
+  ppo:
+    clip: 0.2
+    epochs: 10
+    gae_lambda: 0.95
+    gamma: 0.99
+    lr: 0.0003
+  total_timesteps: 400000
+voltage:
+  correction_margin: 0.001
+  max_correction_iters: 8
+  v_critical: 0.9
+  v_max: 1.05
+  v_min: 0.95
