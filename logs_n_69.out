@@ -5,3 +5,64 @@ ep   0 stage0 cost=$38 vmin=0.9534 Qact=0.00 curt=0.0
 ep  10 stage0 cost=$51 vmin=0.9522 Qact=0.00 curt=0.0 
 ep  20 stage0 cost=$41 vmin=0.9518 Qact=0.00 curt=0.0 
 ep  22 stage1 cost=$56 vmin=0.9524 Qact=0.00 curt=0.0 -> ADVANCED
+ep  30 stage1 cost=$96 vmin=0.9515 Qact=0.00 curt=0.0 
+ep  40 stage1 cost=$115 vmin=0.9515 Qact=0.00 curt=0.0 
+ep  42 stage2 cost=$87 vmin=0.9504 Qact=0.00 curt=0.0 -> ADVANCED
+ep  50 stage2 cost=$152 vmin=0.9508 Qact=0.00 curt=0.7 
+ep  60 stage2 cost=$140 vmin=0.9501 Qact=0.00 curt=0.6 
+ep  62 stage3 cost=$143 vmin=0.9524 Qact=0.00 curt=0.0 -> ADVANCED
+ep  70 stage3 cost=$219 vmin=0.9517 Qact=0.00 curt=0.0 
+ep  80 stage3 cost=$204 vmin=0.9510 Qact=0.00 curt=0.8 
+ep  82 stage4 cost=$263 vmin=0.9507 Qact=0.00 curt=0.0 -> ADVANCED
+ep  90 stage4 cost=$195 vmin=0.9503 Qact=0.00 curt=2.8 
+ep 100 stage4 cost=$179 vmin=0.9505 Qact=0.00 curt=0.0 
+ep 110 stage4 cost=$160 vmin=0.9514 Qact=0.00 curt=0.0 
+ep 120 stage4 cost=$165 vmin=0.9509 Qact=0.00 curt=0.0 
+ep 130 stage4 cost=$192 vmin=0.9501 Qact=0.00 curt=0.0 
+ep 140 stage4 cost=$197 vmin=0.9502 Qact=0.00 curt=0.0 
+ep 150 stage4 cost=$198 vmin=0.9505 Qact=0.00 curt=0.0 
+ep 160 stage4 cost=$153 vmin=0.9511 Qact=0.00 curt=0.0 
+ep 170 stage4 cost=$177 vmin=0.9510 Qact=0.00 curt=0.0 
+ep 180 stage4 cost=$206 vmin=0.9508 Qact=0.00 curt=0.0 
+ep 190 stage4 cost=$228 vmin=0.9504 Qact=0.00 curt=1.9 
+ep 200 stage4 cost=$170 vmin=0.9512 Qact=0.00 curt=1.6 
+ep 210 stage4 cost=$182 vmin=0.9500 Qact=0.00 curt=0.0 
+ep 220 stage4 cost=$161 vmin=0.9502 Qact=0.00 curt=0.6 
+ep 230 stage4 cost=$222 vmin=0.9501 Qact=0.00 curt=1.9 
+ep 240 stage4 cost=$235 vmin=0.9504 Qact=0.00 curt=1.4 
+ep 250 stage4 cost=$219 vmin=0.9502 Qact=0.00 curt=0.0 
+ep 260 stage4 cost=$246 vmin=0.9503 Qact=0.00 curt=0.0 
+ep 270 stage4 cost=$276 vmin=0.9504 Qact=0.00 curt=0.7 
+ep 280 stage4 cost=$275 vmin=0.9501 Qact=0.00 curt=0.0 
+ep 290 stage4 cost=$264 vmin=0.9502 Qact=0.00 curt=0.6 
+ep 300 stage4 cost=$275 vmin=0.9507 Qact=0.00 curt=1.0 
+ep 310 stage4 cost=$253 vmin=0.9503 Qact=0.00 curt=1.0 
+ep 320 stage4 cost=$258 vmin=0.9508 Qact=0.00 curt=0.0 
+ep 330 stage4 cost=$243 vmin=0.9510 Qact=0.00 curt=0.7 
+ep 340 stage4 cost=$234 vmin=0.9515 Qact=0.00 curt=0.0 
+ep 350 stage4 cost=$214 vmin=0.9502 Qact=0.00 curt=0.0 
+ep 360 stage4 cost=$190 vmin=0.9504 Qact=0.00 curt=0.0 
+ep 370 stage4 cost=$211 vmin=0.9519 Qact=0.00 curt=0.0 
+ep 380 stage4 cost=$170 vmin=0.9508 Qact=0.00 curt=0.0 
+ep 390 stage4 cost=$153 vmin=0.9500 Qact=0.00 curt=0.0 
+ep 400 stage4 cost=$247 vmin=0.9504 Qact=0.00 curt=0.0 
+ep 410 stage4 cost=$239 vmin=0.9502 Qact=0.00 curt=2.1 
+ep 420 stage4 cost=$255 vmin=0.9501 Qact=0.00 curt=0.8 
+ep 430 stage4 cost=$229 vmin=0.9504 Qact=0.00 curt=0.0 
+ep 440 stage4 cost=$250 vmin=0.9505 Qact=0.00 curt=1.7 
+ep 450 stage4 cost=$252 vmin=0.9509 Qact=0.00 curt=0.0 
+ep 460 stage4 cost=$276 vmin=0.9502 Qact=0.00 curt=0.0 
+ep 470 stage4 cost=$282 vmin=0.9503 Qact=0.00 curt=1.0 
+ep 480 stage4 cost=$252 vmin=0.9501 Qact=0.00 curt=0.0 
+ep 490 stage4 cost=$260 vmin=0.9506 Qact=0.00 curt=0.0 
+ep 500 stage4 cost=$226 vmin=0.9505 Qact=0.00 curt=0.0 
+ep 510 stage4 cost=$224 vmin=0.9505 Qact=0.00 curt=0.7 
+ep 520 stage4 cost=$261 vmin=0.9513 Qact=0.00 curt=0.0 
+ep 530 stage4 cost=$206 vmin=0.9511 Qact=0.00 curt=0.0 
+ep 540 stage4 cost=$213 vmin=0.9507 Qact=0.00 curt=0.0 
+ep 550 stage4 cost=$182 vmin=0.9507 Qact=0.00 curt=0.0 
+ep 560 stage4 cost=$263 vmin=0.9505 Qact=0.00 curt=0.0 
+ep 570 stage4 cost=$261 vmin=0.9505 Qact=0.00 curt=0.0 
+ep 580 stage4 cost=$265 vmin=0.9508 Qact=0.00 curt=0.0 
+ep 590 stage4 cost=$263 vmin=0.9503 Qact=0.00 curt=1.6 
+{"done": true, "out": "results/nested_ieee69_nrel_s0"}

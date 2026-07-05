@@ -1,0 +1,13 @@
+
+results/**/*.pt
+
+results/**/__pycache__/
+
+**/__pycache__/
+
+*.pyc
+
+nohup.out
+
+logs_*.out
+

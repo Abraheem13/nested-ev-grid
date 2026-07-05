@@ -1,1 +1,68 @@
 nohup: ignoring input
+/home/user/yawarb/nested-ev-grid/.venv/lib/python3.13/site-packages/torch/autograd/graph.py:882: UserWarning: CUDA initialization: The NVIDIA driver on your system is too old (found version 12080). Please update your GPU driver by downloading and installing a new version from the URL: http://www.nvidia.com/Download/index.aspx Alternatively, go to: https://pytorch.org to install a PyTorch version that has been compiled with your version of the CUDA driver. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+ep   0 stage0 cost=$11 vmin=0.9547 Qact=0.00 curt=0.0 
+ep  10 stage0 cost=$24 vmin=0.9551 Qact=0.00 curt=0.0 
+ep  20 stage0 cost=$14 vmin=0.9551 Qact=0.00 curt=0.0 
+ep  30 stage0 cost=$19 vmin=0.9545 Qact=0.00 curt=0.0 
+ep  40 stage0 cost=$13 vmin=0.9544 Qact=0.00 curt=0.0 
+ep  50 stage0 cost=$10 vmin=0.9547 Qact=0.00 curt=0.0 
+ep  60 stage0 cost=$17 vmin=0.9550 Qact=0.00 curt=0.0 
+ep  70 stage0 cost=$17 vmin=0.9547 Qact=0.00 curt=0.0 
+ep  80 stage0 cost=$16 vmin=0.9552 Qact=0.00 curt=0.0 
+ep  81 stage1 cost=$17 vmin=0.9535 Qact=0.00 curt=0.0 -> ADVANCED
+ep  90 stage1 cost=$31 vmin=0.9532 Qact=0.00 curt=0.0 
+ep 100 stage1 cost=$37 vmin=0.9546 Qact=0.00 curt=0.0 
+ep 110 stage1 cost=$35 vmin=0.9534 Qact=0.00 curt=0.0 
+ep 120 stage1 cost=$37 vmin=0.9539 Qact=0.00 curt=0.0 
+ep 130 stage1 cost=$44 vmin=0.9522 Qact=0.00 curt=0.0 
+ep 140 stage1 cost=$41 vmin=0.9543 Qact=0.00 curt=0.0 
+ep 150 stage1 cost=$55 vmin=0.9539 Qact=0.00 curt=0.0 
+ep 160 stage1 cost=$49 vmin=0.9539 Qact=0.00 curt=0.0 
+ep 170 stage1 cost=$42 vmin=0.9529 Qact=0.00 curt=0.0 
+ep 180 stage1 cost=$65 vmin=0.9520 Qact=0.00 curt=0.0 
+ep 190 stage1 cost=$60 vmin=0.9508 Qact=0.00 curt=0.0 
+ep 200 stage1 cost=$51 vmin=0.9531 Qact=0.00 curt=0.0 
+ep 205 stage2 cost=$68 vmin=0.9503 Qact=0.00 curt=0.0 -> ADVANCED
+ep 210 stage2 cost=$92 vmin=0.9513 Qact=0.00 curt=0.0 
+ep 220 stage2 cost=$87 vmin=0.9522 Qact=0.00 curt=0.0 
+ep 225 stage3 cost=$89 vmin=0.9506 Qact=0.00 curt=0.0 -> ADVANCED
+ep 230 stage3 cost=$93 vmin=0.9516 Qact=0.00 curt=0.0 
+ep 240 stage3 cost=$101 vmin=0.9521 Qact=0.00 curt=0.0 
+ep 250 stage3 cost=$130 vmin=0.9500 Qact=0.00 curt=0.0 
+ep 260 stage3 cost=$117 vmin=0.9510 Qact=0.00 curt=0.0 
+ep 270 stage3 cost=$102 vmin=0.9525 Qact=0.00 curt=0.0 
+ep 280 stage3 cost=$100 vmin=0.9501 Qact=0.00 curt=0.0 
+ep 290 stage3 cost=$113 vmin=0.9521 Qact=0.00 curt=0.0 
+ep 300 stage3 cost=$118 vmin=0.9506 Qact=0.00 curt=0.0 
+ep 310 stage3 cost=$113 vmin=0.9503 Qact=0.00 curt=0.0 
+ep 320 stage3 cost=$112 vmin=0.9507 Qact=0.00 curt=0.0 
+ep 330 stage3 cost=$113 vmin=0.9502 Qact=0.00 curt=0.0 
+ep 340 stage3 cost=$103 vmin=0.9504 Qact=0.00 curt=0.0 
+ep 350 stage3 cost=$100 vmin=0.9512 Qact=0.00 curt=0.0 
+ep 360 stage3 cost=$104 vmin=0.9518 Qact=0.00 curt=0.0 
+ep 370 stage3 cost=$119 vmin=0.9505 Qact=0.00 curt=0.0 
+ep 380 stage3 cost=$106 vmin=0.9508 Qact=0.00 curt=0.0 
+ep 390 stage3 cost=$92 vmin=0.9505 Qact=0.00 curt=0.0 
+ep 400 stage3 cost=$107 vmin=0.9500 Qact=0.00 curt=0.0 
+ep 410 stage3 cost=$103 vmin=0.9503 Qact=0.00 curt=0.0 
+ep 420 stage3 cost=$103 vmin=0.9501 Qact=0.00 curt=0.0 
+ep 430 stage3 cost=$106 vmin=0.9503 Qact=0.00 curt=0.0 
+ep 440 stage3 cost=$114 vmin=0.9503 Qact=0.00 curt=0.0 
+ep 450 stage3 cost=$102 vmin=0.9508 Qact=0.00 curt=0.0 
+ep 460 stage3 cost=$104 vmin=0.9510 Qact=0.00 curt=0.0 
+ep 470 stage3 cost=$111 vmin=0.9504 Qact=0.00 curt=0.0 
+ep 480 stage3 cost=$87 vmin=0.9521 Qact=0.00 curt=0.0 
+ep 490 stage3 cost=$122 vmin=0.9503 Qact=0.01 curt=0.7 
+ep 500 stage3 cost=$79 vmin=0.9525 Qact=0.00 curt=0.0 
+ep 510 stage3 cost=$90 vmin=0.9507 Qact=0.00 curt=0.0 
+ep 520 stage3 cost=$97 vmin=0.9517 Qact=0.00 curt=0.0 
+ep 530 stage3 cost=$96 vmin=0.9514 Qact=0.00 curt=0.0 
+ep 534 stage4 cost=$123 vmin=0.9501 Qact=0.00 curt=0.0 -> ADVANCED
+ep 540 stage4 cost=$104 vmin=0.9501 Qact=0.00 curt=0.0 
+ep 550 stage4 cost=$93 vmin=0.9526 Qact=0.00 curt=0.0 
+ep 560 stage4 cost=$83 vmin=0.9540 Qact=0.00 curt=0.0 
+ep 570 stage4 cost=$85 vmin=0.9534 Qact=0.00 curt=0.0 
+ep 580 stage4 cost=$97 vmin=0.9517 Qact=0.00 curt=0.0 
+ep 590 stage4 cost=$87 vmin=0.9517 Qact=0.00 curt=0.0 
+{"done": true, "out": "results/nested_ieee33_acn_s0"}
