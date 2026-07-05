@@ -1,16 +1,16 @@
 nohup: ignoring input
 /home/user/yawarb/nested-ev-grid/.venv/lib/python3.13/site-packages/torch/autograd/graph.py:882: UserWarning: CUDA initialization: The NVIDIA driver on your system is too old (found version 12080). Please update your GPU driver by downloading and installing a new version from the URL: http://www.nvidia.com/Download/index.aspx Alternatively, go to: https://pytorch.org to install a PyTorch version that has been compiled with your version of the CUDA driver. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
   return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
-ep   0 cost=$131 vmin=0.9505 viol=0.0% SQ=0.839
+ep   0 cost=$137 vmin=0.9517 viol=0.0% SQ=0.855
 Traceback (most recent call last):
   File "/home/user/yawarb/nested-ev-grid/scripts/train_baseline.py", line 128, in <module>
     main()
     ~~~~^^
-  File "/home/user/yawarb/nested-ev-grid/scripts/train_baseline.py", line 110, in main
-    m = agent.run_episode(env, price, LOAD_SHAPE, train=True)
-  File "/home/user/yawarb/nested-ev-grid/src/nflev/baselines/flat_ddpg.py", line 72, in run_episode
-    self.apply_action(env, a)
-    ~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "/home/user/yawarb/nested-ev-grid/scripts/train_baseline.py", line 112, in main
+    m = run_onpolicy_episode(agent, env, price, LOAD_SHAPE, train=True)
+  File "/home/user/yawarb/nested-ev-grid/scripts/train_baseline.py", line 49, in run_onpolicy_episode
+    helper.apply_action(env, a)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^
   File "/home/user/yawarb/nested-ev-grid/src/nflev/baselines/flat_ddpg.py", line 45, in apply_action
     env.set_dispatch(k, blk[:MAX_EVS_FLAT] * c_max,
     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

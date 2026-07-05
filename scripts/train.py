@@ -30,6 +30,9 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default=None)
     ap.add_argument("--device", default="cpu")
+    ap.add_argument("--ablation", default="none",
+                    choices=["none", "no_l1", "flat_timescale", "no_user_model"])
+    ap.add_argument("--no_curriculum", action="store_true")
     args = ap.parse_args()
 
     cfg = yaml.safe_load(open(ROOT / "configs/base.yaml"))
@@ -48,10 +51,17 @@ def main():
             mods["episode_hours"] = stage["episode_hours"]
         if not stage.get("stochastic", True):
             mods["load_forecast_noise"] = 0.0
+        if args.ablation == "no_user_model":
+            mods["disable_behavior"] = True
         return ChargingEnv(cfg, args.network, ds, n_ev=n_ev, seed=seed,
                            scenario_mods=mods)
 
-    trainer = NestedTrainer(cfg, env_factory, device=args.device)
+    abl = args.ablation if args.ablation != "no_user_model" else "none"
+    trainer = NestedTrainer(cfg, env_factory, device=args.device, ablation=abl)
+    if args.no_curriculum:
+        trainer.curriculum.idx = 3
+        trainer.curriculum.stages = [trainer.curriculum.stages[3]] * 4 + \
+            [trainer.curriculum.stages[3]]
     price = PRICE_PROFILES[ds.get("price_source", "pjm")]
 
     log_path = out / "train_log.csv"
@@ -63,6 +73,8 @@ def main():
         w.writeheader()
         for ep in range(args.episodes):
             t0 = time.time()
+            for ag in trainer.l2:
+                ag.noise = max(0.05, 0.2 * (0.995 ** ep))
             eph = trainer.curriculum.stage.get("episode_hours", 24)
             lp = np.tile(LOAD_SHAPE, eph // 24 + 1)[:eph]
             pp_ = np.tile(price, eph // 24 + 1)[:eph]

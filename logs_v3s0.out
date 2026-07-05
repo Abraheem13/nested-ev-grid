@@ -1,0 +1,12 @@
+nohup: ignoring input
+/home/user/yawarb/nested-ev-grid/.venv/lib/python3.13/site-packages/torch/autograd/graph.py:882: UserWarning: CUDA initialization: The NVIDIA driver on your system is too old (found version 12080). Please update your GPU driver by downloading and installing a new version from the URL: http://www.nvidia.com/Download/index.aspx Alternatively, go to: https://pytorch.org to install a PyTorch version that has been compiled with your version of the CUDA driver. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+ep   0 stage0 cost=$23 vmin=0.9563 Qact=0.00 curt=0.0 
+ep  10 stage0 cost=$54 vmin=0.9558 Qact=0.00 curt=0.0 
+ep  19 stage1 cost=$50 vmin=0.9532 Qact=0.00 curt=0.0 -> ADVANCED
+ep  20 stage1 cost=$97 vmin=0.9532 Qact=0.00 curt=0.0 
+ep  30 stage1 cost=$68 vmin=0.9539 Qact=0.00 curt=0.0 
+ep  40 stage1 cost=$101 vmin=0.9517 Qact=0.00 curt=0.0 
+ep  49 stage2 cost=$94 vmin=0.9538 Qact=0.00 curt=0.0 -> ADVANCED
+ep  50 stage2 cost=$134 vmin=0.9504 Qact=0.00 curt=0.0 
+ep  60 stage2 cost=$209 vmin=0.9500 Qact=0.01 curt=0.0 

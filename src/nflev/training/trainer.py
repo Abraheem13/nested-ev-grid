@@ -48,8 +48,9 @@ class Curriculum:
 
 class NestedTrainer:
     def __init__(self, cfg: dict, env_factory, device: str = "cpu",
-                 max_evs: int = 40):
+                 max_evs: int = 40, ablation: str = "none"):
         self.cfg = cfg
+        self.ablation = ablation  # none | no_l1 | flat_timescale
         self.env_factory = env_factory  # (penetration, stochastic, episode_h, seed) -> env
         self.max_evs = max_evs
         self.l1 = PPOAgent(cfg, state_dim=cfg["level1"]["state_dim"], device=device)
@@ -76,17 +77,20 @@ class NestedTrainer:
 
     def _l2_reward(self, env, k: int, interval: dict, energy_cost: float,
                    unmet_sq: float, t_h: float) -> float:
-        # Dense shaping (fixes reward-hacking observed in run s0: SQ collapsed
-        # to 0.43 because the sparse departure-time penalty let the agent
-        # "save" money by not charging).
+        # v2 economics: the aggregator is a PROFIT-SEEKING retailer buying at
+        # wholesale LMP and selling within the DSO corridor. The v1 reward
+        # (-beta1 * p * sum(c), Eq. 9) treated revenue as cost, making
+        # under-delivery locally optimal — the root cause of the SQ collapse
+        # in runs s0/v2_s0. Margin-seeking also endogenously shifts charging
+        # into low-LMP hours, aligning aggregator and system objectives.
         delivered_kwh = sum(env.agg_rates[k].values()) * 0.25
+        margin = (env.exec_prices[k] - env._lmp(t_h) / 1000.0) * delivered_kwh
         urgency_pen = 0.0
         for ev in env.fleet.connected_by_aggregator(k):
             need_frac = max(0.0, ev.soc_target - ev.soc)
             hrs_left = max(0.25, ev.departure_h - t_h)
             urgency_pen += (need_frac ** 2) / hrs_left
-        return float(-self.r2["beta_cost"] * energy_cost
-                     + 0.3 * delivered_kwh / 10.0
+        return float(2.0 * margin
                      - 4.0 * urgency_pen
                      - self.r2["beta_unmet"] * 5.0 * unmet_sq
                      - 0.5 * interval["curtailed_kwh"])
@@ -99,7 +103,8 @@ class NestedTrainer:
         env = self.env_factory(st, seed)
         s1 = env.reset(price_profile, load_profile)
         n_intervals = int(env.episode_h * 3600 // env.dispatch_s)
-        per_hour = int(env.pricing_s // env.dispatch_s)
+        per_hour = 1 if self.ablation == "flat_timescale" else \
+            int(env.pricing_s // env.dispatch_s)
 
         l1_s, l1_a, l1_logp = None, None, None
         hour_buf: list[dict] = []
@@ -108,7 +113,9 @@ class NestedTrainer:
 
         for i in range(n_intervals):
             # ---- Level 1 acts hourly
-            if i % per_hour == 0:
+            if i % per_hour == 0 and self.ablation == "no_l1":
+                env.set_corridor(0.10, 0.14)
+            elif i % per_hour == 0:
                 if l1_s is not None and train:
                     r1 = self._l1_reward(hour_buf, env.fleet.service_quality())
                     self.l1.store(l1_s, l1_a, l1_logp, r1, False)
@@ -149,7 +156,7 @@ class NestedTrainer:
                 l2_prev[k] = (l2_states[k], l2_actions[k])
 
         # close L1 trajectory + PPO update
-        if train and l1_s is not None:
+        if train and l1_s is not None and self.ablation != "no_l1":
             r1 = self._l1_reward(hour_buf, env.fleet.service_quality())
             self.l1.store(l1_s, l1_a, l1_logp, r1, True)
             self.l1.update()

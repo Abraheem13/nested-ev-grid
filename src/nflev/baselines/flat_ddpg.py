@@ -46,9 +46,12 @@ class FlatDDPG:
                              price_frac=float(blk[-1]))
 
     def reward(self, env, interval: dict, dep_unmet_sq: float) -> float:
-        cost = interval["cost"]
+        t_h = env.t_s / 3600.0
+        lmp = env._lmp(t_h) / 1000.0
+        margin = sum((env.exec_prices[k] - lmp) * sum(env.agg_rates[k].values()) * 0.25
+                     for k in range(self.n_agg))
         viol = float(interval["v_min"] < 0.95 - 1e-9)
-        return float(-cost / 10.0 - self.pen / 100.0 * viol - 20.0 * dep_unmet_sq)
+        return float(2.0 * margin - self.pen / 100.0 * viol - 100.0 * dep_unmet_sq)
 
     def save(self, path):
         self.agent.save(path)

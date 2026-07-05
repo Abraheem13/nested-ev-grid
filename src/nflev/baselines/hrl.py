@@ -66,7 +66,8 @@ class HRLBaseline:
 
             interval = env.run_dispatch_interval()
             viol = float(interval["v_min"] < 0.95 - 1e-9)
-            hi_reward_acc += -interval["cost"] / 10.0 - self.pen / 100.0 * viol
+            hi_reward_acc += -interval["cost"] / 10.0 - self.pen / 100.0 * viol \
+                             + 2.0 * env.fleet.service_quality()
 
             for k in range(self.n_agg):
                 budget_kw = goals[k] * env.p_cap
@@ -76,8 +77,10 @@ class HRLBaseline:
                     if ev.departed and ev.aggregator == k and ev.idx not in dep_seen:
                         unmet += max(0.0, ev.soc_target - ev.soc) ** 2
                         dep_seen.add(ev.idx)
-                r_lo = (-abs(actual_kw - budget_kw) / env.p_cap
-                        - 20.0 * unmet - 2.0 * viol)
+                lmp = env._lmp(env.t_s / 3600.0) / 1000.0
+                margin = (env.exec_prices[k] - lmp) * actual_kw * 0.25
+                r_lo = (2.0 * margin - abs(actual_kw - budget_kw) / env.p_cap
+                        - 100.0 * unmet - 2.0 * viol)
                 if lo_prev[k] is not None and train:
                     ps, pa = lo_prev[k]
                     self.low[k].store(ps, pa, r_lo, lo_states[k],

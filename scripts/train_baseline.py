@@ -53,7 +53,10 @@ def run_onpolicy_episode(agent, env, price, load, train=True):
             if ev.departed and ev.idx not in dep_seen:
                 unmet += max(0.0, ev.soc_target - ev.soc) ** 2
                 dep_seen.add(ev.idx)
-        r = -interval["cost"] / 10.0 - 20.0 * unmet
+        lmp = env._lmp(env.t_s / 3600.0) / 1000.0
+        margin = sum((env.exec_prices[k] - lmp) * sum(env.agg_rates[k].values()) * 0.25
+                     for k in range(env.n_agg))
+        r = 2.0 * margin - 100.0 * unmet
         c = cost_signal(interval)
         if train:
             agent.store(s, raw, logp, r, c)

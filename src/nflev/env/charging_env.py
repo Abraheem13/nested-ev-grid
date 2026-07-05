@@ -182,7 +182,12 @@ class ChargingEnv:
         self.fleet.step_connections(t0_h)
         # L3a: behavioral response at the dispatch boundary
         mean_price = float(np.mean(self.exec_prices))
-        accept_rate = self.behavior.evaluate(self.evs, mean_price, t_h=t0_h)
+        if self.mods.get("disable_behavior"):
+            for e in self.evs:
+                e.accepted = True
+            accept_rate = 1.0
+        else:
+            accept_rate = self.behavior.evaluate(self.evs, mean_price, t_h=t0_h)
 
         steps = self.dispatch_s // self.dt_s
         interval_cost = 0.0
