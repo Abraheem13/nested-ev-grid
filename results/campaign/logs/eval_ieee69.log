@@ -1,0 +1,5 @@
+# /home/user/yawarb/nested-ev-grid/.venv/bin/python scripts/evaluate_v2.py --episodes 50 --seed_base 7000 --out /home/user/yawarb/nested-ev-grid/results/eval/ieee69_nrel.csv --methods uncoordinated tou nested --scenarios S3 --network ieee69 --dataset nrel --checkpoint /home/user/yawarb/nested-ev-grid/results/nested_ieee69_nrel
+[S3/uncoordinated] done 50 episodes
+[S3/tou] done 50 episodes
+[S3/nested] done 50 episodes
+wrote /home/user/yawarb/nested-ev-grid/results/eval/ieee69_nrel.csv

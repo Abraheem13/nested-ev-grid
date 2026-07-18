@@ -21,7 +21,23 @@
     "train_nested_abl_flat_timescale": 16812.19414830208,
     "train_cpo": 7137.286277294159,
     "train_ppo_lag": 7147.76303768158,
-    "train_flat_ddpg": 7647.640857219696
+    "train_flat_ddpg": 7647.640857219696,
+    "eval_abl_no_curriculum": 587.0946905612946,
+    "eval_abl_no_l3": 587.0997111797333,
+    "eval_dataset_acn": 589.4952874183655,
+    "eval_abl_no_l1": 628.0514152050018,
+    "eval_sens_srated_14": 642.147424697876,
+    "eval_abl_no_user_model": 642.7047379016876,
+    "eval_sens_delta_0p0005": 651.5744922161102,
+    "eval_sens_delta_0p002": 653.073472738266,
+    "eval_abl_flat_timescale": 654.9656357765198,
+    "eval_sens_srated_10": 662.492169380188,
+    "eval_dataset_elaad": 711.1862061023712,
+    "eval_stress": 1444.955894947052,
+    "eval_ieee69": 1698.5630950927734,
+    "stats_main": 0.02706766128540039
   },
-  "failed": []
+  "failed": [
+    "stats_main"
+  ]
 }

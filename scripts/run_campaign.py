@@ -399,11 +399,11 @@ def main() -> None:
 
     if ok and args.phase in ("all", "eval"):
         print(f"\n===== PHASE 3: EVAL ({len(evals)} jobs) =====")
-        ok = execute(evals, args.jobs, args.force)
+        ok = execute(train + evals, args.jobs, args.force)
 
     if ok and args.phase in ("all", "stats"):
         print("\n===== PHASE 4: STATS =====")
-        ok = execute(stats, args.jobs, True)
+        ok = execute(train + evals + stats, args.jobs, args.force)
         (TABLES / ".stats_done").touch()
 
     if ok and args.phase in ("all", "verify"):

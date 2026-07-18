@@ -1,0 +1,25 @@
+{
+  "argv": [
+    "--episodes",
+    "50",
+    "--seed_base",
+    "7000",
+    "--out",
+    "/home/user/yawarb/nested-ev-grid/results/eval/ieee69_nrel.csv",
+    "--methods",
+    "uncoordinated",
+    "tou",
+    "nested",
+    "--scenarios",
+    "S3",
+    "--network",
+    "ieee69",
+    "--dataset",
+    "nrel",
+    "--checkpoint",
+    "/home/user/yawarb/nested-ev-grid/results/nested_ieee69_nrel"
+  ],
+  "cfg_override": {},
+  "env_mods": {},
+  "seed_base": 7000
+}

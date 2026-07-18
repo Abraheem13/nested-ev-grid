@@ -1,0 +1,3 @@
+# /home/user/yawarb/nested-ev-grid/.venv/bin/python scripts/evaluate_v2.py --episodes 50 --seed_base 7000 --out /home/user/yawarb/nested-ev-grid/results/eval/sens_delta_0p002.csv --methods nested --scenarios S3 --network ieee33 --dataset nrel --checkpoint /home/user/yawarb/nested-ev-grid/results/nested_ieee33_nrel --cfg_override voltage.correction_margin=0.002
+[S3/nested] done 50 episodes
+wrote /home/user/yawarb/nested-ev-grid/results/eval/sens_delta_0p002.csv

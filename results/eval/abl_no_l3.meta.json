@@ -1,0 +1,27 @@
+{
+  "argv": [
+    "--episodes",
+    "50",
+    "--seed_base",
+    "7000",
+    "--out",
+    "/home/user/yawarb/nested-ev-grid/results/eval/abl_no_l3.csv",
+    "--methods",
+    "nested",
+    "--scenarios",
+    "S3",
+    "--network",
+    "ieee33",
+    "--dataset",
+    "nrel",
+    "--checkpoint",
+    "/home/user/yawarb/nested-ev-grid/results/nested_ieee33_nrel",
+    "--env_mods",
+    "disable_q_control=true"
+  ],
+  "cfg_override": {},
+  "env_mods": {
+    "disable_q_control": true
+  },
+  "seed_base": 7000
+}

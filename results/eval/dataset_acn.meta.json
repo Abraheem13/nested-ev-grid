@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "--episodes",
+    "50",
+    "--seed_base",
+    "7000",
+    "--out",
+    "/home/user/yawarb/nested-ev-grid/results/eval/dataset_acn.csv",
+    "--methods",
+    "nested",
+    "--scenarios",
+    "S3",
+    "--network",
+    "ieee33",
+    "--dataset",
+    "acn",
+    "--checkpoint",
+    "/home/user/yawarb/nested-ev-grid/results/nested_ieee33_acn"
+  ],
+  "cfg_override": {},
+  "env_mods": {},
+  "seed_base": 7000
+}

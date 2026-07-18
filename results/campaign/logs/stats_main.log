@@ -1,0 +1,2 @@
+# /home/user/yawarb/nested-ev-grid/.venv/bin/python -m nflev.eval.stats /home/user/yawarb/nested-ev-grid/results/eval/main_ieee33_nrel.csv --out /home/user/yawarb/nested-ev-grid/results/tables
+/home/user/yawarb/nested-ev-grid/.venv/bin/python: Error while finding module specification for 'nflev.eval.stats' (ModuleNotFoundError: No module named 'nflev')

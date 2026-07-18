@@ -1,0 +1,30 @@
+{
+  "argv": [
+    "--methods",
+    "uncoordinated",
+    "tou",
+    "milp",
+    "nested",
+    "flat_ddpg",
+    "ppo_lag",
+    "cpo",
+    "hrl",
+    "--scenarios",
+    "S2",
+    "--network",
+    "ieee33",
+    "--dataset",
+    "nrel",
+    "--checkpoint",
+    "results/nested_ieee33_nrel",
+    "--baseline_ckpts",
+    "results",
+    "--episodes",
+    "50",
+    "--out",
+    "results/eval/main_S2.csv"
+  ],
+  "cfg_override": {},
+  "env_mods": {},
+  "seed_base": 7000
+}

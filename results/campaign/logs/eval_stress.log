@@ -1,0 +1,4 @@
+# /home/user/yawarb/nested-ev-grid/.venv/bin/python scripts/evaluate_v2.py --episodes 50 --seed_base 7000 --out /home/user/yawarb/nested-ev-grid/results/eval/stress_ieee33_nrel.csv --methods nested --scenarios S6_deadlock S7_q_exhaustion --network ieee33 --dataset nrel --checkpoint /home/user/yawarb/nested-ev-grid/results/nested_ieee33_nrel
+[S6_deadlock/nested] done 50 episodes
+[S7_q_exhaustion/nested] done 50 episodes
+wrote /home/user/yawarb/nested-ev-grid/results/eval/stress_ieee33_nrel.csv
