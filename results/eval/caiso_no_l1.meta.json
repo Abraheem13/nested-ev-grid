@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "--methods",
+    "nested",
+    "--scenarios",
+    "S3",
+    "--network",
+    "ieee33",
+    "--dataset",
+    "nrel_caiso",
+    "--checkpoint",
+    "results/nested_abl_no_l1",
+    "--ablation",
+    "no_l1",
+    "--episodes",
+    "50",
+    "--out",
+    "results/eval/caiso_no_l1.csv"
+  ],
+  "cfg_override": {},
+  "env_mods": {},
+  "seed_base": 7000
+}
