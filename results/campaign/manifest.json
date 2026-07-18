@@ -1,0 +1,27 @@
+{
+  "provenance": {
+    "timestamp": "2026-07-18T10:38:19+0800",
+    "git_commit": "df7562edd0ecf4e51afd06d1322160b985675076",
+    "git_dirty": true,
+    "base_config_sha256": "29629b4c1f71d7da5f27b0fe443ef7e7570d7c50a36ab8b54d71b2ac4bacee54",
+    "python": "3.13.5",
+    "train_episodes": 600,
+    "eval_episodes": 50,
+    "eval_seeds": "7000..7049"
+  },
+  "wall_seconds": {
+    "train_nested_abl_no_curriculum": 8692.225078582764,
+    "train_hrl": 8503.05038189888,
+    "train_nested_ieee33_acn": 14158.321378707886,
+    "train_nested_ieee69_nrel": 16090.33265042305,
+    "train_nested_ieee33_nrel": 16182.299184083939,
+    "train_nested_abl_no_l1": 16343.567109107971,
+    "train_nested_ieee33_elaad": 16403.00461292267,
+    "train_nested_abl_no_user_model": 16595.098746299744,
+    "train_nested_abl_flat_timescale": 16812.19414830208,
+    "train_cpo": 7137.286277294159,
+    "train_ppo_lag": 7147.76303768158,
+    "train_flat_ddpg": 7647.640857219696
+  },
+  "failed": []
+}
