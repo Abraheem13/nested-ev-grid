@@ -120,7 +120,7 @@ def fig_architecture(out: pathlib.Path) -> None:
     _box(ax, (2.8, rows["l1"]), 3.0, h["l1"], "Level 1: DSO pricing (PPO, 1 h)\nretail corridor $[p^{\\min}_t, p^{\\max}_t]$", "#d6e6f8", fl)
     _box(ax, (2.8, rows["l2"]), 3.0, h["l2"], "Level 2: aggregators (DDPG, 15 min)\nshared actor-critic,\nresidual on the plan $u^0_k$:\nset point $u_k$, execution price $p_k$", "#dceedd", fl)
     _box(ax, (2.8, rows["l3"]), 3.0, h["l3"], "Level 3 (non-parametric)\n3a: price acceptance (15 min)\n3b: reactive correction (60 s)", "#fde6cf", fl)
-    _box(ax, (6.2, rows["l2"]), 2.05, h["l2"], "Feasibility layer\nleast-laxity-first allocation\n+ deadline guard\n$\\sum_i c_i \\leq P^{\\mathrm{cap}}_k$, $c_i \\leq \\bar c_i$", "#f3f3f3", fs)
+    _box(ax, (6.2, rows["l2"]), 2.05, h["l2"], "Feasibility layer\nleast-laxity-first allocation\n+ deadline guard\n$\\sum_i c_i \\leq P^{\\mathrm{cap}}_k$, $c_i \\leq \\hat c_i$", "#f3f3f3", fs)
     _box(ax, (6.2, rows["l3"]), 2.05, h["l3"], "$Q_i^{\\max}=\\sqrt{S_i^2-P_i^2}$\nmeasured-sensitivity step\ncurtailment fallback", "#fbe0e0", fs)
     _box(ax, (8.65, 1.05), 1.7, 2.3, "Radial feeder\nIEEE 33/69-bus\nAC power flow\nevery 60 s", "#ececec", fl)
     for key in rows:
