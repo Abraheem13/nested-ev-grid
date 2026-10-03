@@ -112,6 +112,8 @@ def eval_jobs(seeds, episodes):
                 ck = run_dir(m, "residential", "ieee33", "none", s) / "model.pt"
                 add(m, sc, ckpt=ck, seed=s)
                 add(m + "+L3", sc, ckpt=ck, seed=s)
+    for sc in ("S3", "S4"):                                    # base load alone (reference)
+        add("noev", sc, variant="reference")
     for sc in ("S3", "S7"):                                    # what the learned levels add
         add("plan+L3", sc, variant="decomp")
         for s in seeds:

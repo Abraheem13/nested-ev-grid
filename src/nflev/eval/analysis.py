@@ -602,6 +602,28 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
         N.add("gap nested pa max", max(gap_pa.values()), 1)
     C.add("l3_zero_viol_rules_main", maxv(["uncoordinated+L3", "tou+L3", "price_aware+L3", "lp_opf+L3"]) == 0.0)
     C.add("unc_violates_main", maxv(["uncoordinated"]) > 0)
+    nominal = [sc for sc in scen if sc != "S4"]           # S4 adds base-load forecast error
+    l3_methods = ["uncoordinated+L3", "tou+L3", "price_aware+L3", "lp_opf+L3"]
+    C.add("nested_zero_viol_nominal", maxv(["nested"], scs=nominal) == 0.0,
+          f"max {maxv(['nested'], scs=nominal)}")
+    C.add("l3_zero_viol_rules_nominal", maxv(l3_methods, scs=nominal) == 0.0, f"max {maxv(l3_methods, scs=nominal)}")
+    C.add("l3_zero_viol_learned_nominal", maxv([m for m in LEARNED_ALL if "+L3" in m], scs=nominal) == 0.0)
+    N.add("viol nested max S4", maxv(["nested"], scs=["S4"]), 3)
+    # S4: are the remaining violations on days where the base load alone violates?
+    sel = d[(d.variant.isin(["main", "reference"])) & (d.fleet == "residential") & (d.network == "ieee33")
+            & (d.split == "test") & (d.scenario == "S4")]
+    noev = sel[sel.method == "noev"].set_index("episode").violation_rate_pct
+    if len(noev):
+        base_days = set(noev[noev > 0].index)
+        N.add("noev viol days S4", len(base_days), 0)
+        bad = {}
+        for m in ["nested"] + l3_methods + [x for x in LEARNED_ALL if "+L3" in x]:
+            v = sel[sel.method == m].set_index("episode").violation_rate_pct
+            extra = set(v[v > 0].index) - base_days
+            if extra:
+                bad[m] = sorted(extra)
+            N.add(f"viol days S4 {m}", int((v > 0).sum()), 0)
+        C.add("s4_l3_violations_only_base_load_days", not bad, json.dumps({k: [int(e) for e in v] for k, v in bad.items()}))
     l3rel = [abs(get(m + "+L3", sc)["cost_eur"] / get(m, sc)["cost_eur"] - 1) * 100
              for m in ("uncoordinated", "tou", "price_aware", "lp_opf") for sc in scen
              if get(m, sc) is not None and get(m + "+L3", sc) is not None]
