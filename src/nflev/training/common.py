@@ -1,15 +1,19 @@
 """Shared reward definitions and helpers for every learned method.
 
-Aggregator reward (one per aggregator k, per 15-min interval):
-    r_k = w_m (p_exec,k E_del,k - C_k) - w_u U_k - w_g G_k - w_c X_k
-  E_del delivered energy, C wholesale cost of the energy drawn, U unmet energy of
+Aggregator reward (one per aggregator k, per 15-min interval), mode "cost":
+    r_k = -C_k + w (p_exec,k - lambda_ref) E_del,k - w_u U_k - w_g G_k - w_c X_k
+  C wholesale cost of the energy drawn, E_del delivered energy, U unmet energy of
   vehicles that left during the interval, G energy that can no longer be
   delivered before departure (urgency shortfall of plugged-in vehicles), X
-  curtailed energy. All energies in kWh, money in EUR.
+  curtailed energy. All energies in kWh, money in EUR. Summed over an episode
+  the first term is exactly minus the energy cost. w is the retail weight; with
+  level2.revenue_neutral it is a Lagrange multiplier that keeps the mean retail
+  price paid at lambda_ref (see RetailMultiplier).
 Voltage penalty (methods without Level 3 only, shared by all aggregators):
     r_V = -(10 1[V_min < 0.95] + 100 max(0, 0.95 - V_min))
 Level-1 reward (hourly):
     r_1 = -w_cost C_h/100 - w_vdef (20 vdef)^2 - w_vind 1[viol] - w_unmet U_h/100 - w_curt X_h/100
+          + w (R_h - lambda_ref E_del,h)/100       (R_h retail revenue of the hour)
 """
 from __future__ import annotations
 
@@ -28,23 +32,53 @@ def shortfall_by_agg(env) -> np.ndarray:
     return np.bincount(env.agg, weights=gap, minlength=env.n_agg)
 
 
-def aggregator_rewards(cfg: dict, env, info: dict) -> np.ndarray:
-    """mode "margin":    w_m (p_exec E_del - C)   (plain retail margin)
-    mode "advantage": w_m [ (p_bar - lambda_t) E_drawn + (p_exec - lambda_ref) E_del ]
-    where p_bar is the mean day-ahead price over the look-ahead window. The two
-    modes differ only by terms that are constant once all energy is delivered,
-    but "advantage" removes the incentive to charge early that discounting
-    creates under the plain margin."""
+def aggregator_rewards(cfg: dict, env, info: dict, w_retail: float | None = None) -> np.ndarray:
+    """mode "cost":      -C + w (p_exec - lambda_ref) E_del          (default)
+    mode "margin":    w (p_exec E_del - C)                         (plain retail margin)
+    mode "advantage": w [(p_bar - lambda_t) E_drawn + (p_exec - lambda_ref) E_del]
+    (p_bar: mean day-ahead price over the look-ahead window). "advantage" was used
+    in earlier versions; it credits any energy drawn below the look-ahead mean
+    and therefore favours afternoon charging when the cheapest hours lie beyond
+    the window."""
     w = cfg["level2"]["reward"]
+    wr = w["margin"] if w_retail is None else w_retail
     per = info["per"]
-    if w.get("mode", "margin") == "advantage":
+    lam_ref = cfg["behavior"]["lambda_ref"]
+    mode = w.get("mode", "margin")
+    if mode == "cost":
+        margin = -per["cost"] + wr * (info["exec_price"] - lam_ref) * per["delivered_kwh"]
+    elif mode == "advantage":
         p_bar = info["price_ahead_mean"] / 1000.0
         lam = info["price_now"] / 1000.0
-        margin = (p_bar - lam) * per["drawn_kwh"] + (info["exec_price"] - cfg["behavior"]["lambda_ref"]) * per["delivered_kwh"]
+        margin = wr * ((p_bar - lam) * per["drawn_kwh"] + (info["exec_price"] - lam_ref) * per["delivered_kwh"])
     else:
-        margin = info["exec_price"] * per["delivered_kwh"] - per["cost"]
-    return (w["margin"] * margin - w["unmet"] * per["unmet_kwh"]
+        margin = wr * (info["exec_price"] * per["delivered_kwh"] - per["cost"])
+    return (margin - w["unmet"] * per["unmet_kwh"]
             - w["urgency"] * shortfall_by_agg(env) - w["curt"] * per["curtailed_kwh"])
+
+
+class RetailMultiplier:
+    """Revenue-neutral dynamic tariff. The weight w of the retail term is a
+    Lagrange multiplier for the constraint  mean retail price paid = lambda_ref,
+    updated by dual ascent once per training episode:
+        w <- clip(w + eta (lambda_ref - p_paid) / lambda_ref, w_min, w_max)
+    (an equality constraint, so w may become negative).
+    Prices can then move charging in time, but drivers pay the flat reference
+    rate on average, as under the non-pricing baselines."""
+
+    def __init__(self, cfg: dict):
+        rn = cfg["level2"].get("revenue_neutral", {}) or {}
+        self.enabled = bool(rn.get("enabled", False))
+        self.w = float(rn.get("w_init", cfg["level2"]["reward"]["margin"]))
+        self.eta = float(rn.get("eta", 0.5))
+        self.w_max = float(rn.get("w_max", 5.0))
+        self.w_min = float(rn.get("w_min", 0.0))
+        self.ref = float(cfg["behavior"]["lambda_ref"])
+
+    def update(self, m: dict) -> None:
+        p = m.get("retail_price_paid", float("nan"))
+        if self.enabled and np.isfinite(p):
+            self.w = float(np.clip(self.w + self.eta * (self.ref - p) / self.ref, self.w_min, self.w_max))
 
 
 def voltage_penalty(env, info: dict) -> float:
@@ -62,29 +96,47 @@ class HourAccumulator:
         self.reset()
 
     def reset(self):
-        self.cost = self.unmet = self.curt = 0.0
+        self.cost = self.unmet = self.curt = self.revenue = self.delivered = 0.0
         self.vmin = np.inf
 
     def add(self, info: dict):
         self.cost += info["cost"]
+        self.revenue += float((info["exec_price"] * info["per"]["delivered_kwh"]).sum())
+        self.delivered += float(info["per"]["delivered_kwh"].sum())
         self.unmet += float(info["per"]["unmet_kwh"].sum())
         self.curt += info["curtailed_kwh"]
         self.vmin = min(self.vmin, info["vmin"])
 
 
-def level1_reward(cfg: dict, env, acc: HourAccumulator) -> float:
+def level1_reward(cfg: dict, env, acc: HourAccumulator, w_retail: float = 0.0) -> float:
     w = cfg["level1"]["reward"]
     vdef = max(0.0, env.v_min - acc.vmin)
+    retail = w_retail * (acc.revenue - cfg["behavior"]["lambda_ref"] * acc.delivered) / 100.0
     return float(-w["cost"] * acc.cost / 100.0 - w["vdef"] * (20.0 * vdef) ** 2
                  - w["vind"] * float(acc.vmin < env.v_min - 1e-9)
-                 - w["unmet"] * acc.unmet / 100.0 - w["curt"] * acc.curt / 100.0)
+                 - w["unmet"] * acc.unmet / 100.0 - w["curt"] * acc.curt / 100.0 + retail)
 
 
 def corridor_from_action(env, a: np.ndarray) -> tuple[float, float]:
-    span = env.price_ceil - env.price_floor - env.min_width
-    p_min = env.price_floor + float(a[0]) * span
-    p_max = p_min + env.min_width + float(a[1]) * (env.price_ceil - p_min - env.min_width)
+    """Level-1 action in [0, 1]^2 -> retail corridor [p_min, p_max].
+    a_1 sets the centre: piecewise linear with a_1 = 0.5 at the reference rate
+    lambda_ref, 0 at the price floor and 1 at the ceiling. a_2 sets the width
+    between min_corridor_width and max_corridor_width. A neutral action
+    (0.5, 0.5) therefore gives a corridor centred on the flat reference tariff,
+    so an untrained policy charges what the non-pricing baselines charge."""
+    ref, lo, hi = env.ref_price, env.price_floor, env.price_ceil
+    a0, a1 = float(a[0]), float(a[1])
+    c = ref + (2 * a0 - 1) * ((ref - lo) if a0 < 0.5 else (hi - ref))
+    half = 0.5 * (env.min_width + a1 * (env.max_width - env.min_width))
+    p_min = float(np.clip(c - half, lo, hi - env.min_width))
+    p_max = float(np.clip(c + half, p_min + env.min_width, hi))
     return p_min, p_max
+
+
+def neutral_corridor(env) -> tuple[float, float]:
+    """Corridor of the neutral Level-1 action; used whenever no learned Level 1
+    sets the corridor (no-Level-1 ablation, learned baselines)."""
+    return corridor_from_action(env, np.array([0.5, 0.5]))
 
 
 def noise_schedule(cfg: dict, episode: int) -> float:

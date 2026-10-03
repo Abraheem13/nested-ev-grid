@@ -51,6 +51,8 @@ class ChargingEnv:
         r = cfg["retail"]
         self.price_floor, self.price_ceil = r["price_floor"], r["price_ceil"]
         self.min_width, self.flat_price = r["min_corridor_width"], r["flat_price"]
+        self.max_width = r.get("max_corridor_width", 0.20)
+        self.ref_price = cfg["behavior"]["lambda_ref"]
         self.guard = cfg["level2"]["deadline_guard"]
         self.disagg = cfg["level2"].get("disaggregation", "llf")
         self.prior_mode = cfg["level2"].get("prior", "none")

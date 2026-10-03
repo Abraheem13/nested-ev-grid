@@ -1,0 +1,111 @@
+% Results. Every number is a macro from generated/numbers.tex; every
+% qualitative statement tagged "% claim: <name>" is checked against
+% generated/claims.json by scripts/check_paper.py.
+
+\begin{table*}[t]
+\centering
+\caption{Results at S3 (240 vehicles, 80\% penetration; IEEE 33-bus; \GEvalDays{} held-out days; learned methods averaged over \GTrainSeeds{} training seeds). Cost is the daily energy cost with its 95\% bootstrap confidence interval; Retail is the mean retail price paid (\euro/kWh); SQ is the delivered share of requested energy. ``+L3'' attaches the Level-3 layer to a baseline.}
+\label{tab:main}
+\footnotesize
+\input{generated/tab_main_s3.tex}
+\end{table*}
+
+\subsection{Main comparison}
+\label{sec:res-main}
+% text written from the final results
+
+\begin{table*}[t]
+\centering
+\caption{Daily energy cost (\euro) and violation rate (\%) across penetration levels S1--S5 (S4: S3 with \SI{15}{\percent} load-forecast error).}
+\label{tab:scenarios}
+\footnotesize
+\input{generated/tab_scenarios.tex}
+\end{table*}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{generated/fig_scenarios.pdf}
+\caption{Cost per delivered kWh, service quality and violation rate across S1--S5 (means with 95\% bootstrap confidence intervals over days).}
+\label{fig:scenarios}
+\end{figure*}
+
+\subsection{Penetration and forecast error}
+\label{sec:res-scen}
+
+\begin{table}[t]
+\centering
+\caption{Paired comparison at S3: daily differences (nested minus method) with 95\% bootstrap intervals and Holm-corrected Wilcoxon signed-rank $p$-values.}
+\label{tab:stats}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\input{generated/tab_stats.tex}
+\end{table}
+
+\subsection{Statistical comparison}
+\label{sec:res-stats}
+
+\begin{table}[t]
+\centering
+\caption{Level-3 stress tests: S6 forbids charging from 19:00 to 20:00; S7 has 360 vehicles with inverters derated to 50\%.}
+\label{tab:stress}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\input{generated/tab_stress.tex}
+\end{table}
+
+\subsection{Level 3 under stress}
+\label{sec:res-stress}
+
+\begin{table}[t]
+\centering
+\caption{Ablations at S3 and S5 (daily cost in \euro, SQ, violation rate in \%).}
+\label{tab:ablation}
+\footnotesize
+\setlength{\tabcolsep}{2.5pt}
+\input{generated/tab_ablation.tex}
+\end{table}
+
+\subsection{Ablations}
+\label{sec:res-abl}
+
+\begin{table}[t]
+\centering
+\caption{Generalization at 80\% penetration: second feeder, real ACN-Data sessions and the 2019 price regime.}
+\label{tab:general}
+\footnotesize
+\setlength{\tabcolsep}{2.5pt}
+\input{generated/tab_general.tex}
+\end{table}
+
+\subsection{Generalization}
+\label{sec:res-gen}
+
+\begin{table}[t]
+\centering
+\caption{Sensitivity of Level 3 at S3: correction margin $\delta$ and inverter rating $S_i$.}
+\label{tab:sensitivity}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\input{generated/tab_sensitivity.tex}
+\end{table}
+
+\subsection{Level-3 parameters}
+\label{sec:res-sens}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{generated/fig_training.pdf}
+\caption{Training curves (rolling mean over 25 episodes, averaged over seeds; exploration noise active).}
+\label{fig:training}
+\end{figure*}
+
+\begin{table}[t]
+\centering
+\caption{Training cost on one CPU core per run.}
+\label{tab:compute}
+\footnotesize
+\input{generated/tab_compute.tex}
+\end{table}
+
+\subsection{Training and computation}
+\label{sec:res-comp}

@@ -161,8 +161,8 @@ def row(s, variant, method, scenario, fleet="residential", network="ieee33", spl
 
 
 def table_main(s, scenario, path):
-    lines = [r"\begin{tabular}{@{}lrrrrrr@{}}", r"\toprule",
-             r"Method & Cost (\euro) & Cost (\euro/kWh) & SQ & Viol.\ (\%) & $V_{\min}$ (p.u.) & Curt.\ (kWh) \\",
+    lines = [r"\begin{tabular}{@{}lrrrrrrr@{}}", r"\toprule",
+             r"Method & Cost (\euro) & \euro/kWh & Retail & SQ & Viol.\ (\%) & $V_{\min}$ & Curt.\ (kWh) \\",
              r"\midrule"]
     for i, m in enumerate(ORDER):
         r = row(s, "main", m, scenario)
@@ -171,7 +171,8 @@ def table_main(s, scenario, path):
         if m in ("flat_ddpg", "nested"):
             lines.append(r"\midrule")
         name = label(m)
-        cells = [fmt_ci(r, "cost_eur", 1), fmt(r["cost_per_kwh"], 4), fmt(r["service_quality"], 3),
+        cells = [fmt_ci(r, "cost_eur", 1), fmt(r["cost_per_kwh"], 4), fmt(r["retail_price_paid"], 3),
+                 fmt(r["service_quality"], 3),
                  fmt(r["violation_rate_pct"], 2), fmt(r["min_voltage_pu"], 4), fmt(r["curtailed_kwh"], 1)]
         if m == "nested":
             name = r"\textbf{" + name + "}"
@@ -336,9 +337,11 @@ def table_hyper(cfg: dict, path: pathlib.Path) -> None:
         ("", f"batch {d['batch']}, buffer {thin(d['buffer'])}, warm-up {thin(d['warmup'])} transitions"),
         ("", f"noise {d['noise_start']}$\\to${d['noise_end']} (decay {d['noise_decay']}/episode)"),
         ("", f"residual scale $\\rho$ {l2.get('residual_scale', 1.0)}"),
+        ("", f"revenue-neutral multiplier: $\\eta_\\omega$ {l2['revenue_neutral']['eta']}, "
+             f"$\\omega\\in[{l2['revenue_neutral']['w_min']}, {l2['revenue_neutral']['w_max']}]$, initial {l2['revenue_neutral']['w_init']}"),
         ("Training", f"{t['episodes']} episodes; curriculum window {cfg['curriculum']['window']}"),
         ("Level 3", f"$\\delta$ {cfg['voltage']['correction_margin']} p.u., $S_i$ {cfg['reactive_power']['s_rated_kva']} kVA, "
-                    f"$\\le${cfg['voltage']['max_correction_iters']} power flows"),
+                    f"$\\le${cfg['voltage']['max_correction_iters']} (+{cfg['voltage']['max_fallback_iters']} when curtailing) power flows"),
     ]
     lines = [r"\begin{tabular}{@{}ll@{}}", r"\toprule"]
     lines += [f"{a} & {b} \\\\" for a, b in rows]
@@ -438,7 +441,8 @@ def figures(s, d, art, out):
 # ------------------------------------------------------------------ numbers
 MACRO_METRICS = [("cost", "cost_eur", 1), ("cpk", "cost_per_kwh", 4), ("sq", "service_quality", 3),
                  ("viol", "violation_rate_pct", 2), ("vmin", "min_voltage_pu", 4),
-                 ("curt", "curtailed_kwh", 1), ("qact", "q_activation_pct", 2)]
+                 ("curt", "curtailed_kwh", 1), ("qact", "q_activation_pct", 2),
+                 ("retail", "retail_price_paid", 3)]
 LEARNED_ALL = ["flat_ddpg", "flat_ddpg+L3", "ppo_lag", "ppo_lag+L3", "cpo", "cpo+L3", "hrl", "hrl+L3"]
 
 

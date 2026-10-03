@@ -16,7 +16,8 @@ Runs inside one QSTS step, after the power flow:
    EV power at every aggregator bus (most depressed bus sheds the most),
    which also frees inverter capacity for reactive power.
 6. Re-solve the power flow; repeat until V_min,sys >= V_target or
-   `max_correction_iters` power flows have been run.
+   `max_correction_iters` power flows have been run; once the fallback is
+   active, up to `max_fallback_iters` further power flows let it complete.
 """
 from __future__ import annotations
 
@@ -44,6 +45,7 @@ class ReactiveController:
         self.v_target = v["v_min"] + v["correction_margin"]
         self.v_crit = v["v_critical"]
         self.max_iters = v["max_correction_iters"]
+        self.fallback_iters = int(v.get("max_fallback_iters", 0))
         self.fallback = rp["curtailment_fallback"]
         self.curt_step = rp["curtailment_step"]
         self.s_rated = s_rated_kva
@@ -62,8 +64,8 @@ class ReactiveController:
         p_agg = np.array([float(np.sum(p)) for p in ev_p_kw])
         exhausted = False
         prev_q = prev_v = None
-        iters = 0
-        for _ in range(self.max_iters):
+        iters, limit = 0, self.max_iters
+        while iters < limit:
             vm = res.vm
             vsys = float(vm.min())
             if vsys >= self.v_target:
@@ -91,6 +93,7 @@ class ReactiveController:
                     progress = True
             if not progress:
                 exhausted = True
+                limit = self.max_iters + self.fallback_iters
                 if not self.fallback or np.all((shed >= 1.0) | (p_agg <= 0)):
                     break
                 inc = self.curt_step * w / w.max()

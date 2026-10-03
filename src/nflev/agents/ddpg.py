@@ -64,8 +64,8 @@ class DDPGAgent:
             nn.init.zeros_(last.bias)
         self.actor_t.load_state_dict(self.actor.state_dict())
         self.critic_t.load_state_dict(self.critic.state_dict())
-        self.opt_a = torch.optim.Adam(self.actor.parameters(), lr=p["lr_actor"])
-        self.opt_c = torch.optim.Adam(self.critic.parameters(), lr=p["lr_critic"])
+        self.opt_a = torch.optim.Adam(self.actor.parameters(), lr=p["lr_actor"], foreach=True)
+        self.opt_c = torch.optim.Adam(self.critic.parameters(), lr=p["lr_critic"], foreach=True)
         self.buf = ReplayBuffer(s_dim, a_dim, p["buffer"], self.rng)
         self.noise = p["noise_start"]
 
@@ -96,10 +96,11 @@ class DDPGAgent:
         self.opt_a.zero_grad()
         loss_a.backward()
         self.opt_a.step()
-        with torch.no_grad():
+        with torch.no_grad():                                   # soft target update
             for tp, sp in ((self.actor_t, self.actor), (self.critic_t, self.critic)):
-                for pt, ps in zip(tp.parameters(), sp.parameters()):
-                    pt.mul_(1.0 - self.tau).add_(self.tau * ps)
+                pt, ps = list(tp.parameters()), list(sp.parameters())
+                torch._foreach_mul_(pt, 1.0 - self.tau)
+                torch._foreach_add_(pt, ps, alpha=self.tau)
 
     def state_dict(self) -> dict:
         return {"actor": self.actor.state_dict(), "critic": self.critic.state_dict()}

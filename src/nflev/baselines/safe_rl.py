@@ -17,7 +17,7 @@ from ..agents.cpo import CPO
 from ..agents.ppo_lagrangian import PPOLagrangian
 from ..env.charging_env import ChargingEnv
 from ..env.episode import make_episode
-from ..training.common import Curriculum, TrainLog, TrainState, aggregator_rewards, voltage_cost
+from ..training.common import Curriculum, RetailMultiplier, TrainLog, TrainState, aggregator_rewards, voltage_cost
 from .flat_ddpg import apply_flat_action, flat_obs, flat_obs_dim
 
 AGENTS = {"ppo_lag": PPOLagrangian, "cpo": CPO}
@@ -54,10 +54,11 @@ def train_safe_rl(cfg: dict, method: str, fleet: str, network: str, seed: int,
     ctl = SafeRL(cfg, env.n_agg, method)
     cur = Curriculum(cfg)
     out_dir.mkdir(parents=True, exist_ok=True)
+    mult = RetailMultiplier(cfg)
     state, start = TrainState(out_dir, int(cfg["training"].get("checkpoint_every", 50))), 0
     st = state.load()
     if st is not None:                                   # resume an interrupted run
-        ctl, cur, rng, start = st["ctl"], st["cur"], st["rng"], st["ep"]
+        ctl, cur, rng, mult, start = st["ctl"], st["cur"], st["rng"], st["mult"], st["ep"]
         print(f"resuming {out_dir.name} at episode {start}", flush=True)
     log = TrainLog(out_dir / "train_log.csv", start)
     t_start = time.time()
@@ -70,14 +71,16 @@ def train_safe_rl(cfg: dict, method: str, fleet: str, network: str, seed: int,
             a, raw, logp = ctl.agent.act(s, True)
             apply_flat_action(env, a)
             info = env.run_interval()
-            ctl.agent.store(s, raw, logp, float(aggregator_rewards(cfg, env, info).sum()),
+            ctl.agent.store(s, raw, logp, float(aggregator_rewards(cfg, env, info, mult.w).sum()),
                             voltage_cost(env, info))
         ctl.agent.update()
         m = env.episode_metrics()
         cur.report(m)
-        row = {"episode": ep, "stage": cur.idx, "n_ev": env.n_ev, **m, "wall_s": round(time.time() - t0, 3)}
+        row = {"episode": ep, "stage": cur.idx, "n_ev": env.n_ev, **m, "w_retail": mult.w,
+               "wall_s": round(time.time() - t0, 3)}
+        mult.update(m)
         log.write(row)
-        state.maybe_save(ep + 1, episodes, {"ctl": ctl, "cur": cur, "rng": rng})
+        state.maybe_save(ep + 1, episodes, {"ctl": ctl, "cur": cur, "rng": rng, "mult": mult})
         if ep % log_every == 0:
             print(f"[{method}/{fleet}/{network}/s{seed}] ep{ep:4d} stage{cur.idx} cost={m['cost_eur']:.1f} "
                   f"SQ={m['service_quality']:.3f} viol={m['violation_rate_pct']:.2f}%", flush=True)

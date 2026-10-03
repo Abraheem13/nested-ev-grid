@@ -7,6 +7,8 @@
   * every generated macro used in the text is defined in generated/numbers.tex
   * every \\input / \\includegraphics target exists
   * environments are balanced
+  * every qualitative statement tagged "% claim: <name>" holds on the data
+    (generated/claims.json, computed by nflev.eval.analysis)
   * no digits typed into result sentences: numbers in the Results, Discussion,
     Conclusion and Abstract must come from macros, except for an allow-list of
     configuration constants (scenario names, bus numbers, years, ...)
@@ -16,6 +18,7 @@ Exit code 0 means all checks passed.
 """
 from __future__ import annotations
 
+import json
 import pathlib
 import re
 import sys
@@ -36,10 +39,22 @@ def section(tex: str, start: str, stops: list[str]) -> str:
     return tex[i:j]
 
 
+def expand(tex: str, base: pathlib.Path = PAPER) -> str:
+    """Inline \\input{...} of hand-written files (generated files are checked
+    separately: they must exist, and their macros must be defined)."""
+    def sub(m):
+        name = m.group(1)
+        if name.startswith("generated/"):
+            return m.group(0)
+        f = base / (name if name.endswith(".tex") else name + ".tex")
+        return expand(strip_comments(f.read_text()), base) if f.exists() else m.group(0)
+    return re.sub(r"\\input\{([^}]+)\}", sub, tex)
+
+
 def check(tex_path: pathlib.Path = PAPER / "main.tex") -> list[str]:
     errs: list[str] = []
     raw = tex_path.read_text()
-    tex = strip_comments(raw)
+    tex = expand(strip_comments(raw))
 
     labels = re.findall(r"\\label\{([^}]+)\}", tex)
     dup = {x for x in labels if labels.count(x) > 1}
@@ -61,6 +76,17 @@ def check(tex_path: pathlib.Path = PAPER / "main.tex") -> list[str]:
     for b in items:
         if status.get(b) not in ("OK", "FIXED"):
             errs.append(f"bibitem {b} is not verified in REFERENCES_VERIFICATION.md (status {status.get(b)})")
+
+    # qualitative claims: every "% claim: name" tag must name a claim that holds
+    claims_f = PAPER / "generated" / "claims.json"
+    claims = json.loads(claims_f.read_text()) if claims_f.exists() else {}
+    raw_all = raw + "".join((PAPER / f).read_text() for f in ("results.tex", "discussion.tex", "conclusion.tex")
+                            if (PAPER / f).exists())
+    for name in re.findall(r"%\s*claim:\s*([A-Za-z0-9_]+)", raw_all):
+        if name not in claims:
+            errs.append(f"claim '{name}' is not computed by the analysis")
+        elif not claims[name]["holds"]:
+            errs.append(f"claim '{name}' does NOT hold on the data: {claims[name].get('detail', '')}")
 
     numbers = PAPER / "generated" / "numbers.tex"
     defined = set(re.findall(r"\\newcommand\{\\([A-Za-z]+)\}", numbers.read_text())) if numbers.exists() else set()

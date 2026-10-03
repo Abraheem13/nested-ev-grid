@@ -1,8 +1,9 @@
-pandapower>=3.0
-numpy
-scipy
-pyyaml
-numba
-torch
-pandas
-matplotlib
+# Versions used to produce the paper's results (Python 3.11); see artifacts/provenance.json.
+numpy==2.4.6
+scipy==1.17.1
+torch==2.14.1
+pandas==2.3.3
+pyyaml==6.0.3
+matplotlib==3.11.2
+pytest==9.1.1
+pandapower==3.5.5      # tests only: validates the power-flow solver against Newton-Raphson

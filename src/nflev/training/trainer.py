@@ -30,8 +30,9 @@ from ..agents.ddpg import DDPGAgent
 from ..agents.ppo import PPOAgent
 from ..env.charging_env import L1_OBS_DIM, L2_OBS_DIM, ChargingEnv
 from ..env.episode import make_episode
-from .common import (Curriculum, HourAccumulator, TrainLog, TrainState, aggregator_rewards,
-                     corridor_from_action, level1_reward, noise_schedule, voltage_penalty)
+from .common import (Curriculum, HourAccumulator, RetailMultiplier, TrainLog, TrainState,
+                     aggregator_rewards, corridor_from_action, level1_reward, neutral_corridor,
+                     noise_schedule, voltage_penalty)
 
 ABLATIONS = ("none", "no_l1", "flat_timescale", "no_behavior", "no_l3", "no_curriculum",
              "no_guard", "proportional", "no_prior")
@@ -96,7 +97,7 @@ class NestedController:
 
     def l1_act(self, env):
         if self.ablation == "no_l1":
-            env.set_corridor(env.price_floor, env.price_ceil)
+            env.set_corridor(*neutral_corridor(env))
             return None
         s = env.l1_obs()
         a, logp = self.l1.act(s, self.explore)
@@ -137,10 +138,11 @@ def train_nested(cfg: dict, fleet: str, network: str, seed: int, ablation: str,
     ctl.explore = True
     cur = Curriculum(cfg, enabled=(ablation != "no_curriculum"))
     out_dir.mkdir(parents=True, exist_ok=True)
+    mult = RetailMultiplier(cfg)
     state, start = TrainState(out_dir, int(cfg["training"].get("checkpoint_every", 50))), 0
     st = state.load()
     if st is not None:                                   # resume an interrupted run
-        ctl, cur, rng, start = st["ctl"], st["cur"], st["rng"], st["ep"]
+        ctl, cur, rng, mult, start = st["ctl"], st["cur"], st["rng"], st["mult"], st["ep"]
         print(f"resuming {out_dir.name} at episode {start}", flush=True)
     log = TrainLog(out_dir / "train_log.csv", start)
     snap_every = int(cfg["training"].get("snapshot_every", 100))
@@ -160,7 +162,7 @@ def train_nested(cfg: dict, fleet: str, network: str, seed: int, ablation: str,
         for i in range(n_int):
             if i % period == 0:
                 if l1_prev is not None:
-                    ctl.l1.store(*l1_prev, level1_reward(cfg, env, acc), False)
+                    ctl.l1.store(*l1_prev, level1_reward(cfg, env, acc, mult.w), False)
                 l1_prev = ctl.l1_act(env)
                 acc.reset()
             obs = [ctl.l2_input(env, k) for k in range(env.n_agg)]
@@ -175,7 +177,7 @@ def train_nested(cfg: dict, fleet: str, network: str, seed: int, ablation: str,
                 env.set_aggregate(k, ctl.to_u(env, k, acts[k][0]), acts[k][1])
             info = env.run_interval()
             acc.add(info)
-            r = aggregator_rewards(cfg, env, info)
+            r = aggregator_rewards(cfg, env, info, mult.w)
             if ablation == "no_l3":
                 r = r + voltage_penalty(env, info)
             for k in range(env.n_agg):
@@ -186,17 +188,19 @@ def train_nested(cfg: dict, fleet: str, network: str, seed: int, ablation: str,
             ctl.l2[k].store(s, a, rr, ctl.l2_input(env, k), True)
             ctl.l2[k].update()
         if l1_prev is not None:
-            ctl.l1.store(*l1_prev, level1_reward(cfg, env, acc), True)
+            ctl.l1.store(*l1_prev, level1_reward(cfg, env, acc, mult.w), True)
             ctl.l1.update()
         m = env.episode_metrics()
         advanced = cur.report(m)
+        w_used = mult.w
+        mult.update(m)
         row = {"episode": ep, "stage": cur.idx, "n_ev": env.n_ev, **m,
-               "noise": ctl.l2[0].noise, "wall_s": round(time.time() - t0, 3)}
+               "noise": ctl.l2[0].noise, "w_retail": w_used, "wall_s": round(time.time() - t0, 3)}
         log.write(row)
         if (ep + 1) % snap_every == 0 and ep + 1 < episodes:      # light policy snapshots
             torch.save({**ctl.state_dict(), "fleet": fleet, "network": network, "seed": seed,
                         "episodes": ep + 1}, out_dir / f"snapshot_ep{ep + 1}.pt")
-        state.maybe_save(ep + 1, episodes, {"ctl": ctl, "cur": cur, "rng": rng})
+        state.maybe_save(ep + 1, episodes, {"ctl": ctl, "cur": cur, "rng": rng, "mult": mult})
         if ep % log_every == 0 or advanced:
             print(f"[{ablation}/{fleet}/{network}/s{seed}] ep{ep:4d} stage{cur.idx} n_ev={env.n_ev} "
                   f"cost={m['cost_eur']:.1f} SQ={m['service_quality']:.3f} viol={m['violation_rate_pct']:.2f}% "
@@ -204,7 +208,7 @@ def train_nested(cfg: dict, fleet: str, network: str, seed: int, ablation: str,
     log.close()
     ctl.explore = False
     torch.save({**ctl.state_dict(), "fleet": fleet, "network": network, "seed": seed,
-                "episodes": episodes, "final_stage": cur.idx,
+                "episodes": episodes, "final_stage": cur.idx, "w_retail": mult.w,
                 "train_wall_s": time.time() - t_start}, out_dir / "model.pt")
     state.finish()
     return {"final_stage": cur.idx, "wall_s": time.time() - t_start}
