@@ -83,6 +83,7 @@ citation did not support the sentence it was attached to.
 | gupta2017 | OK | Gupta, Egorov, Kochenderfer, ALA workshop at AAMAS 2017 (parameter sharing). |
 | silver2018residual | OK | T. Silver, K. Allen, J. Tenenbaum, L. Kaelbling, "Residual policy learning," arXiv:1812.06298, 2018. |
 | johannink2019residual | OK | T. Johannink et al., "Residual reinforcement learning for robot control," ICRA 2019, pp. 6023–6029. |
+| stooke2020pid | OK | A. Stooke, J. Achiam, P. Abbeel, "Responsive safety in reinforcement learning by PID Lagrangian methods," ICML 2020, PMLR 119:9133–9143. |
 | orfanoudakis2025ev2gym | OK | EV2Gym (previously cited under the key wang2023twostage): Orfanoudakis, Diaz-Londono, Yılmaz, Palensky, Vergara, IEEE T-ITS 26(2):2410–2421, 2025. |
 
 ## Notes on the final bibliography (`paper/references.tex`)

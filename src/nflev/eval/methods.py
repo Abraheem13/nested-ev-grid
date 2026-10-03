@@ -29,6 +29,23 @@ LABELS = {
 }
 
 
+SHORT = {
+    "uncoordinated": "Uncoord.", "tou": "TOU", "price_aware": "Price-aware", "lp_opf": "LP-OPF$^\\ast$",
+    "flat_ddpg": "Flat DDPG", "ppo_lag": "PPO-Lag.", "cpo": "CPO", "hrl": "HRL", "nested": "Nested",
+}
+
+
+def short_label(method: str) -> str:
+    """Compact label for column-width tables (LP-OPF$^\\ast$: perfect foresight)."""
+    base, l3 = split_name(method)
+    lab = SHORT[base]
+    if base != "nested" and l3:
+        lab += "+L3"
+    if method == "nested-noL3":
+        lab += " w/o L3"
+    return lab
+
+
 def split_name(method: str) -> tuple[str, bool]:
     if method.endswith("+L3"):
         return method[:-3], True
