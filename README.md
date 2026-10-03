@@ -46,8 +46,6 @@ Household load data were provided by Pecan Street Inc. (Dataport).
 
 ## Legacy material
 
-`results/`, `figs/`, `configs/dataset/`, `configs/prices_caiso.yaml`, `logs_*.out`,
-`nohup.out` and the scripts `evaluate_parallel.py`, `evaluate_v2.py`,
-`run_campaign.py`, `verify_claims.py`, `make_figures.py`, `train_baseline.py`,
-`run_ablations.sh`, `run_grid.sh` belong to the superseded v2 code base and are
-**not** used by the paper.
+The superseded v2 code, results and logs were removed from the working tree;
+they remain in the git history. `LEGACY.md` lists every removed path, what
+replaced it, and the one-line command that restores it.
