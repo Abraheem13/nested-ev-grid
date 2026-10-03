@@ -324,6 +324,30 @@ def table_compute(art, path):
     return df
 
 
+DECOMP_ROWS = [("main", "price_aware+L3"), ("decomp", "plan+L3"), ("decomp", "nested-planprice"),
+               ("decomp", "nested-flatprice"), ("main", "nested")]
+
+
+def table_decomp(s, path):
+    """What the learned levels add: the plan executed without learning, with the
+    learned prices only, with the learned dispatch only, and the full controller."""
+    lines = [r"\begin{tabular}{@{}lrrrrrrr@{}}", r"\toprule",
+             r" & \multicolumn{3}{c}{S3} & \multicolumn{4}{c}{S7} \\",
+             r"\cmidrule(lr){2-4}\cmidrule(lr){5-8}",
+             r"Configuration & Cost & Retail & SQ & Cost & Viol. & Curt. & Unmet \\", r"\midrule"]
+    for v, m in DECOMP_ROWS:
+        a, b = row(s, v, m, "S3"), row(s, v, m, "S7")
+        if a is None and b is None:
+            continue
+        cells = (["--"] * 3 if a is None else [fmt(a["cost_eur"], 1), fmt(a["retail_price_paid"], 3),
+                                              fmt(a["service_quality"], 3)]) + \
+                (["--"] * 4 if b is None else [fmt(b["cost_eur"], 1), fmt(b["violation_rate_pct"], 2),
+                                              fmt(b["curtailed_kwh"], 0), fmt(b["unmet_kwh"], 0)])
+        lines.append(short_label(m) + " & " + " & ".join(cells) + r" \\")
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    path.write_text("\n".join(lines) + "\n")
+
+
 def table_hyper(cfg: dict, path: pathlib.Path) -> None:
     """Hyperparameters, read from configs/base.yaml (cannot drift from the code)."""
     t, d, pp, l2 = cfg["training"], cfg["training"]["ddpg"], cfg["training"]["ppo"], cfg["level2"]
@@ -584,7 +608,21 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
             N.add(f"abl delta cost abs {v} {sc}", abs(100 * (r["cost_eur"] / base["cost_eur"] - 1)), 1)
             C.add(f"abl_{v}_costlier_{sc}", r["cost_eur"] > base["cost_eur"],
                   f"{r['cost_eur']:.1f} vs {base['cost_eur']:.1f}")
-    # stress: nested versus the price-aware heuristic with Level 3
+    # decomposition: each configuration relative to the plan executed without learning
+    for sc in ("S3", "S7"):
+        plan = get("plan+L3", sc, "decomp")
+        if plan is None:
+            continue
+        for v, m in DECOMP_ROWS:
+            r = get(m, sc, v)
+            if r is None or m == "plan+L3":
+                continue
+            N.add(f"decomp cost vs plan {m} {sc}", 100 * (r["cost_eur"] / plan["cost_eur"] - 1), 1)
+            N.add(f"decomp cost vs plan abs {m} {sc}", abs(100 * (r["cost_eur"] / plan["cost_eur"] - 1)), 1)
+            for k, col in (("curt", "curtailed_kwh"), ("unmet", "unmet_kwh")):
+                if plan[col] > 0:
+                    N.add(f"decomp {k} vs plan {m} {sc}", 100 * (1 - r[col] / plan[col]), 0)
+        # stress: nested versus the price-aware heuristic with Level 3
     for sc in ("S5", "S7"):
         nst, pa = get("nested", sc), get("price_aware+L3", sc)
         if nst is not None and pa is not None:
@@ -655,6 +693,7 @@ def build_all(art: pathlib.Path, out: pathlib.Path) -> None:
     table_general(s, out / "tab_general.tex")
     table_stress(s, out / "tab_stress.tex")
     table_sensitivity(s, out / "tab_sensitivity.tex")
+    table_decomp(s, out / "tab_decomp.tex")
     compute_df = table_compute(art, out / "tab_compute.tex")
     figures(s, d, art, out)
     import yaml

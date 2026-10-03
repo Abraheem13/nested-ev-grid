@@ -112,6 +112,11 @@ def eval_jobs(seeds, episodes):
                 ck = run_dir(m, "residential", "ieee33", "none", s) / "model.pt"
                 add(m, sc, ckpt=ck, seed=s)
                 add(m + "+L3", sc, ckpt=ck, seed=s)
+    for sc in ("S3", "S7"):                                    # what the learned levels add
+        add("plan+L3", sc, variant="decomp")
+        for s in seeds:
+            for m in ("nested-flatprice", "nested-planprice"):
+                add(m, sc, ckpt=nested_ckpt(s), seed=s, variant="decomp")
     for s in seeds:                                            # ablations on S3 and S5
         add("nested-noL3", "S3", ckpt=nested_ckpt(s), seed=s, variant="ablation")
         for ab in ABLATIONS:
