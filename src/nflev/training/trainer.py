@@ -94,6 +94,7 @@ class NestedController:
 
     def reset(self, env) -> None:
         self.interval = 0
+        env.price_offset = getattr(self, "price_offset", 0.0)
 
     def l1_act(self, env):
         if self.ablation == "no_l1":

@@ -42,6 +42,7 @@ class HRL:
         self.period = 4
 
     def reset(self, env) -> None:
+        env.price_offset = getattr(self, "price_offset", 0.0)
         self.interval = 0
         self.goals = np.full(env.n_agg, 0.5, np.float32)
         self.period = int(env.cfg["simulation"]["pricing_interval_s"] // env.cfg["simulation"]["dispatch_interval_s"])

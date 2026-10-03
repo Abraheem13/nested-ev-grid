@@ -56,6 +56,7 @@ class ChargingEnv:
         self.guard = cfg["level2"]["deadline_guard"]
         self.disagg = cfg["level2"].get("disaggregation", "llf")
         self.prior_mode = cfg["level2"].get("prior", "none")
+        self.price_offset = 0.0         # tariff calibration of a learned policy (set by the policy)
 
     # ================================================================ reset
     def reset(self, spec: EpisodeSpec) -> None:
@@ -90,6 +91,7 @@ class ChargingEnv:
         self.q_nom = self.net.q_load_mvar * self.scale
         self._unmet_acc = np.zeros(self.n_agg)
         self._prior_cache = (-1, None)
+        self.price_offset = 0.0
         self._update_connections(0.0)
         self.last_res = self.pf.solve(self.p_nom * spec.load_actual[0], self.q_nom * spec.load_actual[0],
                                       warm=False)
@@ -153,7 +155,9 @@ class ChargingEnv:
         self._update_connections(t0)
         lo, hi = self.corridor
         for k in range(self.n_agg):
-            self.exec_price[k] = lo + self.actions.get(k, ("rate", {}, 0.0))[2] * (hi - lo)
+            p = lo + self.actions.get(k, ("rate", {}, 0.0))[2] * (hi - lo)
+            self.exec_price[k] = p if self.price_offset == 0.0 else \
+                float(np.clip(p + self.price_offset, self.price_floor, self.price_ceil))
         need = self.need()
         live = np.flatnonzero(self.connected & (need > 1e-6))
         self.accepted[:] = False
