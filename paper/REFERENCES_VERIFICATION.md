@@ -83,3 +83,19 @@ citation did not support the sentence it was attached to.
 | gupta2017 | OK | Gupta, Egorov, Kochenderfer, ALA workshop at AAMAS 2017 (parameter sharing). |
 | silver2018residual | OK | T. Silver, K. Allen, J. Tenenbaum, L. Kaelbling, "Residual policy learning," arXiv:1812.06298, 2018. |
 | johannink2019residual | OK | T. Johannink et al., "Residual reinforcement learning for robot control," ICRA 2019, pp. 6023–6029. |
+| orfanoudakis2025ev2gym | OK | EV2Gym (previously cited under the key wang2023twostage): Orfanoudakis, Diaz-Londono, Yılmaz, Palensky, Vergara, IEEE T-ITS 26(2):2410–2421, 2025. |
+
+## Notes on the final bibliography (`paper/references.tex`)
+
+* Removed entries (no record found or not supporting the claim): aljabri2026,
+  liu2021madrl, zhang2023v2g, zhang2021p2p, mazumder2021, nrel2015; iea2024 was
+  replaced by iea2025.
+* Full author lists were written out and checked for: johannink2019residual
+  (Johannink, Bahl, Nair, Luo, Kumar, Loskyll, Ojea, Solowjow, Levine),
+  cao2024pignn (D. Cao, J. Zhao, J. Hu, Y. Pei, Q. Huang, Z. Chen, W. Hu),
+  dasilva2020 (Da Silva, Nishida, Roijers, Costa), yeh2023sustaingym (12
+  authors, NeurIPS 2023 Datasets and Benchmarks), gupta2017 (LNCS 10642,
+  pp. 66–83).
+* Page numbers that could not be confirmed were omitted rather than guessed
+  (xu2016priority, shi2022stability, orfanoudakis2025).
+* `scripts/check_paper.py` fails if a cited key is not marked OK or FIXED above.

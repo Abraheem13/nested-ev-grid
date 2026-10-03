@@ -18,8 +18,8 @@ import torch
 from ..agents.ddpg import DDPGAgent
 from ..env.charging_env import L1_OBS_DIM, L2_OBS_DIM, ChargingEnv
 from ..env.episode import make_episode
-from ..training.common import (Curriculum, TrainLog, TrainState, aggregator_rewards, noise_schedule,
-                               voltage_penalty)
+from ..training.common import (Curriculum, RetailMultiplier, TrainLog, TrainState, aggregator_rewards,
+                               neutral_corridor, noise_schedule, voltage_penalty)
 
 
 def flat_obs(env) -> np.ndarray:
@@ -31,7 +31,7 @@ def flat_obs_dim(n_agg: int) -> int:
 
 
 def apply_flat_action(env, a: np.ndarray) -> None:
-    env.set_corridor(env.price_floor, env.price_ceil)
+    env.set_corridor(*neutral_corridor(env))
     for k in range(env.n_agg):
         env.set_aggregate(k, a[2 * k], a[2 * k + 1])
 
@@ -71,10 +71,11 @@ def train_flat_ddpg(cfg: dict, fleet: str, network: str, seed: int, out_dir: pat
     ctl = FlatDDPG(cfg, env.n_agg, seed)
     cur = Curriculum(cfg)
     out_dir.mkdir(parents=True, exist_ok=True)
+    mult = RetailMultiplier(cfg)
     state, start = TrainState(out_dir, int(cfg["training"].get("checkpoint_every", 50))), 0
     st = state.load()
     if st is not None:                                   # resume an interrupted run
-        ctl, cur, rng, start = st["ctl"], st["cur"], st["rng"], st["ep"]
+        ctl, cur, rng, mult, start = st["ctl"], st["cur"], st["rng"], st["mult"], st["ep"]
         print(f"resuming {out_dir.name} at episode {start}", flush=True)
     log = TrainLog(out_dir / "train_log.csv", start)
     t_start = time.time()
@@ -92,15 +93,17 @@ def train_flat_ddpg(cfg: dict, fleet: str, network: str, seed: int, out_dir: pat
             a = ctl.agent.act(s, True)
             apply_flat_action(env, a)
             info = env.run_interval()
-            r = float(aggregator_rewards(cfg, env, info).sum() + voltage_penalty(env, info))
+            r = float(aggregator_rewards(cfg, env, info, mult.w).sum() + voltage_penalty(env, info))
             pending = (s, applied_flat_action(info, a), r)
         ctl.agent.store(*pending, flat_obs(env), True)
         ctl.agent.update()
         m = env.episode_metrics()
         cur.report(m)
-        row = {"episode": ep, "stage": cur.idx, "n_ev": env.n_ev, **m, "wall_s": round(time.time() - t0, 3)}
+        row = {"episode": ep, "stage": cur.idx, "n_ev": env.n_ev, **m, "w_retail": mult.w,
+               "wall_s": round(time.time() - t0, 3)}
+        mult.update(m)
         log.write(row)
-        state.maybe_save(ep + 1, episodes, {"ctl": ctl, "cur": cur, "rng": rng})
+        state.maybe_save(ep + 1, episodes, {"ctl": ctl, "cur": cur, "rng": rng, "mult": mult})
         if ep % log_every == 0:
             print(f"[flat_ddpg/{fleet}/{network}/s{seed}] ep{ep:4d} stage{cur.idx} cost={m['cost_eur']:.1f} "
                   f"SQ={m['service_quality']:.3f} viol={m['violation_rate_pct']:.2f}%", flush=True)

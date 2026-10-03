@@ -20,8 +20,8 @@ import torch
 from ..agents.ddpg import DDPGAgent
 from ..env.charging_env import L1_OBS_DIM, L2_OBS_DIM, ChargingEnv
 from ..env.episode import make_episode
-from ..training.common import (Curriculum, TrainLog, TrainState, aggregator_rewards, noise_schedule,
-                               voltage_penalty)
+from ..training.common import (Curriculum, RetailMultiplier, TrainLog, TrainState, aggregator_rewards,
+                               neutral_corridor, noise_schedule, voltage_penalty)
 
 GOAL_WEIGHT = 5.0
 
@@ -55,7 +55,7 @@ class HRL:
     def act(self, env) -> None:
         if self.interval % self.period == 0:
             self.goals = self.high.act(env.l1_obs(), self.explore)
-        env.set_corridor(env.price_floor, env.price_ceil)
+        env.set_corridor(*neutral_corridor(env))
         for k in range(env.n_agg):
             a = self.low[k].act(self.low_obs(env, k), self.explore)
             env.set_aggregate(k, a[0], a[1])
@@ -80,10 +80,11 @@ def train_hrl(cfg: dict, fleet: str, network: str, seed: int, out_dir: pathlib.P
     ctl = HRL(cfg, env.n_agg, seed)
     cur = Curriculum(cfg)
     out_dir.mkdir(parents=True, exist_ok=True)
+    mult = RetailMultiplier(cfg)
     state, start = TrainState(out_dir, int(cfg["training"].get("checkpoint_every", 50))), 0
     st = state.load()
     if st is not None:                                   # resume an interrupted run
-        ctl, cur, rng, start = st["ctl"], st["cur"], st["rng"], st["ep"]
+        ctl, cur, rng, mult, start = st["ctl"], st["cur"], st["rng"], st["mult"], st["ep"]
         print(f"resuming {out_dir.name} at episode {start}", flush=True)
     log = TrainLog(out_dir / "train_log.csv", start)
     t_start = time.time()
@@ -110,12 +111,12 @@ def train_hrl(cfg: dict, fleet: str, network: str, seed: int, out_dir: pathlib.P
                 if pending[k] is not None:
                     ctl.low[k].store(*pending[k], obs[k], False)
                     ctl.low[k].update()
-            env.set_corridor(env.price_floor, env.price_ceil)
+            env.set_corridor(*neutral_corridor(env))
             acts = [ctl.low[k].act(obs[k], True) for k in range(env.n_agg)]
             for k in range(env.n_agg):
                 env.set_aggregate(k, acts[k][0], acts[k][1])
             info = env.run_interval()
-            r = aggregator_rewards(cfg, env, info)
+            r = aggregator_rewards(cfg, env, info, mult.w)
             vp = voltage_penalty(env, info)
             hi_r += float(r.sum() + vp)
             for k in range(env.n_agg):
@@ -130,9 +131,11 @@ def train_hrl(cfg: dict, fleet: str, network: str, seed: int, out_dir: pathlib.P
         ctl.high.update()
         m = env.episode_metrics()
         cur.report(m)
-        row = {"episode": ep, "stage": cur.idx, "n_ev": env.n_ev, **m, "wall_s": round(time.time() - t0, 3)}
+        row = {"episode": ep, "stage": cur.idx, "n_ev": env.n_ev, **m, "w_retail": mult.w,
+               "wall_s": round(time.time() - t0, 3)}
+        mult.update(m)
         log.write(row)
-        state.maybe_save(ep + 1, episodes, {"ctl": ctl, "cur": cur, "rng": rng})
+        state.maybe_save(ep + 1, episodes, {"ctl": ctl, "cur": cur, "rng": rng, "mult": mult})
         if ep % log_every == 0:
             print(f"[hrl/{fleet}/{network}/s{seed}] ep{ep:4d} stage{cur.idx} cost={m['cost_eur']:.1f} "
                   f"SQ={m['service_quality']:.3f} viol={m['violation_rate_pct']:.2f}%", flush=True)

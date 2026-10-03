@@ -177,7 +177,7 @@ def fig_l3_loop(out: pathlib.Path) -> None:
     ax.annotate("", xy=(x0, ys["chk"]), xytext=(x0, ys["re"]),
                 arrowprops=dict(arrowstyle="-|>", lw=0.8,
                                 connectionstyle="arc,angleA=180,angleB=180,armA=10,armB=10,rad=0"))
-    ax.text(0.0, (ys["chk"] + ys["re"]) / 2, "repeat\n(at most\n8 power\nflows)", fontsize=5.5, va="center")
+    ax.text(0.0, (ys["chk"] + ys["re"]) / 2, "repeat\n(at most\n8 power\nflows,\n+12 when\ncurtailing)", fontsize=5.5, va="center")
     fig.savefig(out / "fig_l3_loop.pdf", bbox_inches="tight")
     plt.close(fig)
 

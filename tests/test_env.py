@@ -151,7 +151,7 @@ def test_ddpg_transitions_are_aligned(monkeypatch, tmp_path):
         o[0] = self.t_step // self.steps_per_interval          # interval index in slot 0
         return o
 
-    def fake_rewards(cfg, env, info):                          # reward = index of the interval just run
+    def fake_rewards(cfg, env, info, w=None):                  # reward = index of the interval just run
         return np.full(env.n_agg, float(env.t_step // env.steps_per_interval - 1))
 
     monkeypatch.setattr(ChargingEnv, "l2_obs", tagged_obs)

@@ -1,0 +1,29 @@
+\subsection{What the learned levels add}
+\label{sec:disc-learning}
+% Filled in from the results once the campaign has finished.
+
+\subsection{Scope of the voltage guarantee}
+Level~3b is corrective control on the simulated quasi-static state, not an a
+priori guarantee. It restores the floor whenever the reactive headroom of the
+plugged-in chargers suffices, and otherwise sheds EV power until the floor is
+met or eight power flows have been run. Two consequences follow. First, the
+inverter apparent-power rating is the design variable that buys voltage
+margin: Table~\ref{tab:sensitivity} reports the effect of $S_i$, and S7 shows
+the behaviour when the rating is halved. Second, the correction acts at the
+\SI{60}{s} resolution of the simulation; switching transients and sub-cycle
+dynamics are outside the claim, as for every quasi-static study.
+
+\subsection{Assumptions and limitations}
+\emph{Information.} The plan, the learned agents and the heuristic know each
+plugged-in vehicle's departure time and remaining need, as in managed-charging
+programs where drivers enter them~\cite{lee2019acn}. They do not know future
+arrivals. Only the LP-OPF bound sees the whole day in advance.
+\emph{Network.} The feeders are balanced, radial and single-phase equivalent;
+unbalanced three-phase operation can change the voltage sensitivities on which
+the correction step relies.
+\emph{Behaviour.} The acceptance model~\eqref{eq:fishbein} is stylized. The
+voltage layer does not depend on it, but the value of price signals does.
+\emph{Fleets.} The residential fleet is synthetic with stated parameters; the
+ACN experiments use recorded sessions from workplace sites.
+\emph{Prices.} We use historical Dutch day-ahead prices; adaptation to
+structural market change is not tested beyond the 2019 regime experiment.
