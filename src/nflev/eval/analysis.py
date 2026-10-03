@@ -30,7 +30,8 @@ RULE_ORDER = ["uncoordinated", "uncoordinated+L3", "tou", "tou+L3", "price_aware
 LEARN_ORDER = ["flat_ddpg", "flat_ddpg+L3", "ppo_lag", "ppo_lag+L3", "cpo", "cpo+L3", "hrl", "hrl+L3"]
 ORDER = RULE_ORDER + LEARN_ORDER + ["nested"]
 METRICS = ["cost_eur", "cost_per_kwh", "service_quality", "violation_rate_pct", "min_voltage_pu",
-           "curtailed_kwh", "q_activation_pct", "peak_ev_kw", "retail_price_paid", "energy_delivered_kwh"]
+           "curtailed_kwh", "q_activation_pct", "peak_ev_kw", "retail_price_paid", "energy_delivered_kwh",
+           "unmet_kwh"]
 
 
 # ------------------------------------------------------------------ loading
@@ -269,14 +270,14 @@ def table_general(s, path):
 def table_stress(s, path):
     methods = ["uncoordinated", "tou", "uncoordinated+L3", "tou+L3", "price_aware+L3", "lp_opf+L3", "nested"]
     lines = [r"\begin{tabular}{@{}lrrrrrr@{}}", r"\toprule",
-             r"Method & \multicolumn{3}{c}{S6} & \multicolumn{3}{c}{S7} \\",
-             r" & Viol.\ (\%) & $V_{\min}$ & Curt.\ (kWh) & Viol.\ (\%) & $V_{\min}$ & Curt.\ (kWh) \\", r"\midrule"]
+             r"Method & \multicolumn{2}{c}{S6} & \multicolumn{4}{c}{S7} \\",
+             r"\cmidrule(lr){2-3}\cmidrule(lr){4-7}",
+             r" & Viol. & $V_{\min}$ & Viol. & Curt. & Unmet & SQ \\", r"\midrule"]
     for m in methods:
-        cells = []
-        for sc in ("S6", "S7"):
-            r = row(s, "main", m, sc)
-            cells += ["--"] * 3 if r is None else [fmt(r["violation_rate_pct"], 2), fmt(r["min_voltage_pu"], 3),
-                                                   fmt(r["curtailed_kwh"], 0)]
+        a, b = row(s, "main", m, "S6"), row(s, "main", m, "S7")
+        cells = (["--"] * 2 if a is None else [fmt(a["violation_rate_pct"], 2), fmt(a["min_voltage_pu"], 3)]) + \
+                (["--"] * 4 if b is None else [fmt(b["violation_rate_pct"], 2), fmt(b["curtailed_kwh"], 0),
+                                              fmt(b["unmet_kwh"], 0), fmt(b["service_quality"], 3)])
         lines.append(short_label(m) + " & " + " & ".join(cells) + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     path.write_text("\n".join(lines) + "\n")
@@ -485,7 +486,7 @@ def figures(s, d, art, out):
 MACRO_METRICS = [("cost", "cost_eur", 1), ("cpk", "cost_per_kwh", 4), ("sq", "service_quality", 3),
                  ("viol", "violation_rate_pct", 2), ("vmin", "min_voltage_pu", 4),
                  ("curt", "curtailed_kwh", 1), ("qact", "q_activation_pct", 2),
-                 ("retail", "retail_price_paid", 3)]
+                 ("retail", "retail_price_paid", 3), ("unmet", "unmet_kwh", 1)]
 LEARNED_ALL = ["flat_ddpg", "flat_ddpg+L3", "ppo_lag", "ppo_lag+L3", "cpo", "cpo+L3", "hrl", "hrl+L3"]
 
 
@@ -595,6 +596,11 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
                   f"{nst['service_quality']:.4f} vs {pa['service_quality']:.4f}")
             C.add(f"nested_cheaper_than_pa_{sc}", nst["cost_eur"] < pa["cost_eur"],
                   f"{nst['cost_eur']:.1f} vs {pa['cost_eur']:.1f}")
+            C.add(f"nested_less_unmet_than_pa_{sc}", nst["unmet_kwh"] < pa["unmet_kwh"],
+                  f"{nst['unmet_kwh']:.1f} vs {pa['unmet_kwh']:.1f}")
+            for k, col in (("curt", "curtailed_kwh"), ("unmet", "unmet_kwh"), ("viol", "violation_rate_pct")):
+                if pa[col] > 0:
+                    N.add(f"reduction {k} nested pa {sc}", 100 * (1 - nst[col] / pa[col]), 0)
 
     for _, r in t_cost.iterrows():
         N.add(f"diff cost {r['method']}", abs(r["mean_diff"]), 1)
