@@ -61,12 +61,18 @@ curtailment only when that headroom is exhausted. We evaluate on the IEEE 33-
 and 69-bus feeders with AC power flow, real day-ahead prices, household loads
 and charging sessions, \GEvalDays{} held-out days and \GTrainSeeds{} training
 seeds. At \SI{80}{\percent} EV penetration the controller cuts energy cost by
-\GSavingNestedUncSThree\% relative to uncoordinated charging, comes within
-\GGapNestedLpSThree\% of a perfect-foresight linearized optimal power flow, and
-records \GNestedSThreeViol\% voltage violations against
-\GUncoordinatedSThreeViol\% for uncoordinated charging, while delivering
-\GNestedSThreeSqPct\% of the requested energy. It is the cheapest of the
-learned controllers in every penetration scenario we test.
+\GSavingNestedUncSThree\% relative to uncoordinated charging with no voltage
+violations% claim: nested_zero_viol_main
+\ (uncoordinated: \GUncoordinatedSThreeViol\% of steps) and is the cheapest
+learned controller at every penetration level.% claim: nested_cheapest_learned_main
+\ At nominal load it costs \GGapNestedPaSThree\% more than a price-aware
+heuristic that executes the same plan per vehicle;% claim: pa_cheaper_than_nested_all_main
+\ when the feeder is stressed beyond its reactive capacity, it curtails
+\GReductionCurtNestedPaSSeven\% less energy% claim: nested_less_curtailment_than_pa_S7
+\ and leaves \GReductionUnmetNestedPaSSeven\% less undelivered.% claim: nested_less_unmet_than_pa_S7
+\ Attached to the baselines, Level~3 removes their violations up to
+\SI{100}{\percent} penetration.% claim: l3_zero_viol_rules_main
+% claim: l3_zero_viol_learned_main
 \end{abstract}
 
 \begin{IEEEkeywords}

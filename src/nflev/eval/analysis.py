@@ -602,6 +602,8 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
         N.add("gap nested pa max", max(gap_pa.values()), 1)
     C.add("l3_zero_viol_rules_main", maxv(["uncoordinated+L3", "tou+L3", "price_aware+L3", "lp_opf+L3"]) == 0.0)
     C.add("unc_violates_main", maxv(["uncoordinated"]) > 0)
+    C.add("l3_zero_viol_learned_main", maxv([m for m in LEARNED_ALL if "+L3" in m]) == 0.0,
+          f"max {maxv([m for m in LEARNED_ALL if '+L3' in m])}")
     C.add("learned_noL3_violate", maxv([m for m in LEARNED_ALL if "+L3" not in m]) > 0)
     sig = t_cost[t_cost.p_holm < 0.05].method.tolist() if len(t_cost) else []
     tc = t_cost.set_index("method") if len(t_cost) else None
