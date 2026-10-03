@@ -50,6 +50,7 @@ class FlatDDPG:
         self.explore = False
 
     def reset(self, env) -> None:
+        env.price_offset = getattr(self, "price_offset", 0.0)
         pass
 
     def act(self, env) -> None:

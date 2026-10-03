@@ -204,3 +204,27 @@ def test_training_resume_is_exact(tmp_path, monkeypatch):
     def rows(path):        # drop the wall-clock column
         return [",".join(r.split(",")[:-1]) for r in path.read_text().splitlines()]
     assert rows(full / "train_log.csv") == rows(part / "train_log.csv")
+
+
+def test_price_offset_shifts_execution_price_only_for_calibrated_policies():
+    """Tariff calibration adds a constant to learned execution prices (clipped to the
+    retail bounds); rule-based policies are unaffected because env.reset clears it."""
+    import copy
+    from nflev.baselines.simple import Uncoordinated
+    cfg = copy.deepcopy(CFG)
+    env = ChargingEnv(cfg, "ieee33", q_control=False)
+    spec = make_episode(cfg, "residential", "test", 40, seed=7000, eval_index=0)
+    env.reset(spec)
+    env.price_offset = 0.03
+    env.set_corridor(0.10, 0.30)
+    for k in range(env.n_agg):
+        env.set_aggregate(k, 0.5, 0.5)
+    env.run_interval()
+    assert np.allclose(env.exec_price, 0.20 + 0.03)
+    env.reset(spec)
+    assert env.price_offset == 0.0
+    pol = Uncoordinated()
+    pol.reset(env)
+    pol.act(env)
+    env.run_interval()
+    assert np.allclose(env.exec_price, cfg["retail"]["flat_price"])

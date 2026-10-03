@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One-click reproduction of every number, table and figure in the paper.
 
-    python reproduce.py                 # everything (data -> tests -> train -> eval -> paper)
+    python reproduce.py                 # everything (data -> tests -> train -> calibrate -> eval -> paper)
     python reproduce.py --jobs 8        # parallel workers (default: CPU count)
     python reproduce.py --from-results  # only regenerate tables/figures/numbers from artifacts/
     python reproduce.py --quick         # smoke run: 1 seed, 30 training episodes, 3 eval days
@@ -63,6 +63,21 @@ def train_jobs(seeds, episodes):
     add("nested", fleet="acn_jpl")
     for m in LEARNED_BASELINES:
         add(m)
+    return jobs
+
+
+def calib_jobs(seeds, episodes):
+    """Tariff calibration of every learned policy (training days only)."""
+    jobs = []
+    for name, cmd, sentinel in train_jobs(seeds, episodes):
+        out = sentinel.parent
+        arg = dict(zip(cmd[2::2], cmd[3::2]))
+        method = arg["--method"]
+        if method == "nested" and arg["--ablation"] == "no_l3":
+            method = "nested-noL3"                     # evaluated without Level 3
+        c = [PY, "scripts/calibrate.py", "--method", method, "--checkpoint", str(out / "model.pt"),
+             "--fleet", arg["--fleet"], "--network", arg["--network"]]
+        jobs.append((f"calib__{name}", c, out / "price_calibration.json"))
     return jobs
 
 
@@ -211,6 +226,7 @@ def main():
         from nflev.env.calibration import write_report
         write_report(yaml.safe_load(open(ROOT / "configs" / "base.yaml")), ART / "calibration.json")
         run_all(train_jobs(seeds, tr_eps), a.jobs, a.force, "train")
+        run_all(calib_jobs(seeds, tr_eps), a.jobs, a.force, "calibrate tariffs")
         run_all(eval_jobs(seeds, ev_eps), a.jobs, a.force, "evaluate")
         (ART / "provenance.json").write_text(json.dumps(provenance(), indent=2))
     from nflev.eval.analysis import build_all

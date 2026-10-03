@@ -64,13 +64,23 @@ def label(method: str) -> str:
     return lab
 
 
-def build(method: str, cfg: dict, n_agg: int, checkpoint: pathlib.Path | None = None):
-    """Returns (policy, q_control, cfg_for_env)."""
+def price_offset(checkpoint: pathlib.Path | None) -> float:
+    """Tariff calibration written next to a learned policy by scripts/calibrate.py."""
+    import json
+    f = checkpoint.parent / "price_calibration.json" if checkpoint is not None else None
+    return float(json.loads(f.read_text())["price_offset"]) if f is not None and f.exists() else 0.0
+
+
+def build(method: str, cfg: dict, n_agg: int, checkpoint: pathlib.Path | None = None,
+          calibrated: bool = True):
+    """Returns (policy, q_control, cfg_for_env). Learned policies carry their
+    tariff calibration (price offset) unless calibrated=False."""
     base, l3 = split_name(method)
     if base in RULES:
         return RULES[base](), l3, cfg
     if base == "nested":
         ctl = load_nested(checkpoint, cfg)
+        ctl.price_offset = price_offset(checkpoint) if calibrated else 0.0
         return ctl, l3, ablated_cfg(cfg, ctl.ablation)
     sd = torch.load(checkpoint, map_location="cpu", weights_only=False)["model"]
     if base == "flat_ddpg":
@@ -83,4 +93,5 @@ def build(method: str, cfg: dict, n_agg: int, checkpoint: pathlib.Path | None = 
         raise ValueError(method)
     ctl.load_state_dict(sd)
     ctl.explore = False
+    ctl.price_offset = price_offset(checkpoint) if calibrated else 0.0
     return ctl, l3, cfg
