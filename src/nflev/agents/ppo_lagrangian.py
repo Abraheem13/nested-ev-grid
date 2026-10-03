@@ -30,8 +30,11 @@ class GaussianPolicy(nn.Module):
         self.mu = _mlp(s_dim, a_dim)
         self.log_std = nn.Parameter(torch.full((a_dim,), -0.5))
 
+    LOG_STD_MIN, LOG_STD_MAX = -5.0, 2.0
+
     def dist(self, s):
-        return torch.distributions.Normal(self.mu(s), self.log_std.exp())
+        # clamped log-std keeps the distribution valid even for extreme trust-region steps
+        return torch.distributions.Normal(self.mu(s), self.log_std.clamp(self.LOG_STD_MIN, self.LOG_STD_MAX).exp())
 
 
 class Critic(nn.Module):
