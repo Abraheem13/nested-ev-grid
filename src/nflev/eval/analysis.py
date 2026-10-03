@@ -200,14 +200,15 @@ def table_scenarios(s, methods, scenarios, path):
 
 
 def table_stats(t_cost, t_sq, path):
-    lines = [r"\begin{tabular}{@{}lrrrr@{}}", r"\toprule",
-             r"Nested vs. & $\Delta$Cost (\euro) & $p_{\mathrm{Holm}}$ & $\Delta$SQ & $p_{\mathrm{Holm}}$ \\",
+    lines = [r"\begin{tabular}{@{}lrrrrr@{}}", r"\toprule",
+             r"Nested vs. & $\Delta$Cost (\euro) & $p_{\mathrm{Holm}}$ & Days & $\Delta$SQ & $p_{\mathrm{Holm}}$ \\",
              r"\midrule"]
     sq = t_sq.set_index("method")
     for _, r in t_cost.iterrows():
         q = sq.loc[r["method"]]
         lines.append(f"{short_label(r['method'])} & {r['mean_diff']:+.1f} {{\\scriptsize[{r['lo']:+.1f}, {r['hi']:+.1f}]}}"
-                     f" & {fmt_p(r['p_holm'])} & {q['mean_diff']:+.4f} & {fmt_p(q['p_holm'])} \\\\")
+                     f" & {fmt_p(r['p_holm'])} & {int(r['wins'])}/{int(r['n'])} & {q['mean_diff']:+.4f}"
+                     f" & {fmt_p(q['p_holm'])} \\\\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     path.write_text("\n".join(lines) + "\n")
 
@@ -603,6 +604,12 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
     C.add("unc_violates_main", maxv(["uncoordinated"]) > 0)
     C.add("learned_noL3_violate", maxv([m for m in LEARNED_ALL if "+L3" not in m]) > 0)
     sig = t_cost[t_cost.p_holm < 0.05].method.tolist() if len(t_cost) else []
+    tc = t_cost.set_index("method") if len(t_cost) else None
+    for m in ("price_aware+L3", "lp_opf+L3", "uncoordinated"):
+        if tc is not None and m in tc.index:
+            sign = "costlier" if tc.loc[m, "mean_diff"] > 0 else "cheaper"
+            C.add(f"nested_sig_{sign}_than_{m.replace('+', '_')}_S3", bool(tc.loc[m, "p_holm"] < 0.05),
+                  f"diff {tc.loc[m, 'mean_diff']:.1f}, p {tc.loc[m, 'p_holm']:.3g}")
     C.add("nested_sig_cheaper_all_learned_S3",
           all(m in sig and float(t_cost.set_index("method").loc[m, "mean_diff"]) < 0 for m in LEARNED_ALL
               if m in set(t_cost.method)), str(sig))
@@ -637,9 +644,11 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
             for k, col in (("curt", "curtailed_kwh"), ("unmet", "unmet_kwh")):
                 if plan[col] > 0:
                     N.add(f"decomp {k} vs plan {m} {sc}", 100 * (1 - r[col] / plan[col]), 0)
-            C.add(f"decomp_{m}_cheaper_than_plan_{sc}", r["cost_eur"] < plan["cost_eur"])
-            C.add(f"decomp_{m}_less_curt_than_plan_{sc}", r["curtailed_kwh"] < plan["curtailed_kwh"])
-            C.add(f"decomp_{m}_less_unmet_than_plan_{sc}", r["unmet_kwh"] < plan["unmet_kwh"])
+            mm = m.replace("-", "_").replace("+", "_")
+            C.add(f"decomp_{mm}_cheaper_than_plan_{sc}", r["cost_eur"] < plan["cost_eur"])
+            C.add(f"decomp_{mm}_costlier_than_plan_{sc}", r["cost_eur"] > plan["cost_eur"])
+            C.add(f"decomp_{mm}_less_curt_than_plan_{sc}", r["curtailed_kwh"] < plan["curtailed_kwh"])
+            C.add(f"decomp_{mm}_less_unmet_than_plan_{sc}", r["unmet_kwh"] < plan["unmet_kwh"])
         # stress: nested versus the price-aware heuristic with Level 3
     for sc in ("S5", "S7"):
         nst, pa = get("nested", sc), get("price_aware+L3", sc)
@@ -652,6 +661,8 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
                   f"{nst['service_quality']:.4f} vs {pa['service_quality']:.4f}")
             C.add(f"nested_cheaper_than_pa_{sc}", nst["cost_eur"] < pa["cost_eur"],
                   f"{nst['cost_eur']:.1f} vs {pa['cost_eur']:.1f}")
+            C.add(f"pa_cheaper_than_nested_{sc}", pa["cost_eur"] < nst["cost_eur"],
+                  f"{pa['cost_eur']:.1f} vs {nst['cost_eur']:.1f}")
             C.add(f"nested_less_unmet_than_pa_{sc}", nst["unmet_kwh"] < pa["unmet_kwh"],
                   f"{nst['unmet_kwh']:.1f} vs {pa['unmet_kwh']:.1f}")
             for k, col in (("curt", "curtailed_kwh"), ("unmet", "unmet_kwh"), ("viol", "violation_rate_pct")):
