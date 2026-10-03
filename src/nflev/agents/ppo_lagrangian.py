@@ -1,143 +1,125 @@
-"""PPO-Lagrangian: constrained RL baseline (R2.4).
+"""PPO-Lagrangian (constrained RL baseline).
 
-Flat single-agent PPO with a learned cost critic and dual-ascent Lagrange
-multiplier on the voltage-violation constraint:
+    max_pi J_r(pi) - kappa (J_c(pi) - d),   kappa <- [kappa + eta (J_c - d)]_+
 
-    max_pi  J_r(pi) - lambda * (J_c(pi) - d),   lambda >= 0
-    lambda <- [lambda + lr_dual * (J_c - d)]_+
-
-Cost signal c_t = 1[violation in interval t] (+ graded voltage deficit),
-constraint limit d = 0.  Q-control is DISABLED for this baseline: constraint
-satisfaction must be achieved by the learned policy alone, which is exactly
-the capability being compared against the physics-informed Level 3.
-
-State/action interface identical to FlatDDPG (338-d state, 105-d action).
+Per-interval cost c_t = 1[min voltage < V_min] + 10 * max(0, V_min - V_min,t).
+The policy is a diagonal Gaussian over pre-sigmoid actions; the environment
+receives sigmoid(raw) in [0, 1]^d. One update per training episode.
 """
 from __future__ import annotations
+
 import numpy as np
 import torch
 import torch.nn as nn
 
-from ..baselines.flat_ddpg import MAX_EVS_FLAT
+HIDDEN = (256, 128, 64)
+
+
+def _mlp(i, o):
+    layers, d = [], i
+    for h in HIDDEN:
+        layers += [nn.Linear(d, h), nn.Tanh()]
+        d = h
+    layers.append(nn.Linear(d, o))
+    return nn.Sequential(*layers)
 
 
 class GaussianPolicy(nn.Module):
-    def __init__(self, s_dim, a_dim, hidden=(256, 256)):
+    def __init__(self, s_dim: int, a_dim: int):
         super().__init__()
-        layers, d = [], s_dim
-        for h in hidden:
-            layers += [nn.Linear(d, h), nn.Tanh()]
-            d = h
-        self.body = nn.Sequential(*layers)
-        self.mu = nn.Linear(d, a_dim)
-        self.log_std = nn.Parameter(torch.full((a_dim,), -0.7))
+        self.mu = _mlp(s_dim, a_dim)
+        self.log_std = nn.Parameter(torch.full((a_dim,), -0.5))
 
     def dist(self, s):
-        return torch.distributions.Normal(self.mu(self.body(s)),
-                                          self.log_std.exp())
+        return torch.distributions.Normal(self.mu(s), self.log_std.exp())
 
 
 class Critic(nn.Module):
-    def __init__(self, s_dim, hidden=(256, 256)):
+    def __init__(self, s_dim: int):
         super().__init__()
-        layers, d = [], s_dim
-        for h in hidden:
-            layers += [nn.Linear(d, h), nn.Tanh()]
-            d = h
-        layers += [nn.Linear(d, 1)]
-        self.net = nn.Sequential(*layers)
+        self.net = _mlp(s_dim, 1)
 
     def forward(self, s):
         return self.net(s).squeeze(-1)
 
 
-def gae(r, v, gamma, lam):
+def gae(r: np.ndarray, v: np.ndarray, gamma: float, lam: float) -> tuple[np.ndarray, np.ndarray]:
+    """Single-episode GAE; the episode ends after the last step (v_{T} = 0)."""
     adv = np.zeros_like(r)
     last = 0.0
     for t in reversed(range(len(r))):
-        nxt = v[t + 1] if t + 1 < len(r) else 0.0
-        delta = r[t] + gamma * nxt - v[t]
+        v_next = v[t + 1] if t + 1 < len(r) else 0.0
+        delta = r[t] + gamma * v_next - v[t]
         last = delta + gamma * lam * last
         adv[t] = last
-    return adv, adv + v[:len(r)]
+    return adv, adv + v
 
 
-class PPOLagrangian:
-    name = "ppo_lagrangian"
-
-    def __init__(self, cfg: dict, n_agg: int = 5, device: str = "cpu",
-                 cost_limit: float = 0.0, lr_dual: float = 0.05):
-        self.cfg, self.n_agg, self.device = cfg, n_agg, device
-        self.s_dim = 8 + n_agg * (6 + MAX_EVS_FLAT * 3)
-        self.a_dim = n_agg * (MAX_EVS_FLAT + 1)
-        self.pi = GaussianPolicy(self.s_dim, self.a_dim).to(device)
-        self.vr = Critic(self.s_dim).to(device)
-        self.vc = Critic(self.s_dim).to(device)
-        self.opt = torch.optim.Adam(
-            [*self.pi.parameters(), *self.vr.parameters(), *self.vc.parameters()],
-            lr=3e-4)
-        self.lam = 0.0
-        self.d, self.lr_dual = cost_limit, lr_dual
-        self.gamma, self.lae = 0.99, 0.95
-        self.clip, self.epochs = 0.2, 10
+class OnPolicyBase:
+    def __init__(self, cfg: dict, s_dim: int, a_dim: int):
+        p = cfg["training"]["ppo"]
+        self.gamma, self.lam, self.clip, self.epochs = p["gamma"], p["gae_lambda"], p["clip"], p["epochs"]
+        self.pi = GaussianPolicy(s_dim, a_dim)
+        self.vr, self.vc = Critic(s_dim), Critic(s_dim)
         self.traj = []
 
     @torch.no_grad()
-    def act(self, s, deterministic=False):
-        st = torch.as_tensor(s, dtype=torch.float32, device=self.device)
-        dist = self.pi.dist(st)
-        raw = dist.mean if deterministic else dist.sample()
-        a = torch.sigmoid(raw).cpu().numpy()
-        return a, raw.cpu().numpy(), float(dist.log_prob(raw).sum())
+    def act(self, s: np.ndarray, explore: bool):
+        d = self.pi.dist(torch.as_tensor(s, dtype=torch.float32))
+        raw = d.sample() if explore else d.mean
+        return torch.sigmoid(raw).numpy(), raw.numpy(), float(d.log_prob(raw).sum())
 
     def store(self, s, raw, logp, r, c):
         self.traj.append((s, raw, logp, r, c))
 
-    def update(self) -> dict:
-        if not self.traj:
-            return {}
-        s = torch.as_tensor(np.array([t[0] for t in self.traj]), dtype=torch.float32, device=self.device)
-        raw = torch.as_tensor(np.array([t[1] for t in self.traj]), dtype=torch.float32, device=self.device)
-        logp_old = torch.as_tensor([t[2] for t in self.traj], dtype=torch.float32, device=self.device)
+    def _batch(self):
+        s = torch.as_tensor(np.array([t[0] for t in self.traj]), dtype=torch.float32)
+        raw = torch.as_tensor(np.array([t[1] for t in self.traj]), dtype=torch.float32)
+        logp = torch.as_tensor([t[2] for t in self.traj], dtype=torch.float32)
         r = np.array([t[3] for t in self.traj], np.float32)
         c = np.array([t[4] for t in self.traj], np.float32)
+        return s, raw, logp, r, c
 
+    def state_dict(self) -> dict:
+        return {"pi": self.pi.state_dict(), "vr": self.vr.state_dict(), "vc": self.vc.state_dict(),
+                **({"kappa": self.kappa} if hasattr(self, "kappa") else {})}
+
+    def load_state_dict(self, sd: dict) -> None:
+        self.pi.load_state_dict(sd["pi"])
+        self.vr.load_state_dict(sd["vr"])
+        self.vc.load_state_dict(sd["vc"])
+        if "kappa" in sd:
+            self.kappa = sd["kappa"]
+
+
+class PPOLagrangian(OnPolicyBase):
+    def __init__(self, cfg: dict, s_dim: int, a_dim: int, cost_limit: float = 0.0,
+                 lr_dual: float = 0.05):
+        super().__init__(cfg, s_dim, a_dim)
+        self.opt = torch.optim.Adam([*self.pi.parameters(), *self.vr.parameters(),
+                                     *self.vc.parameters()], lr=cfg["training"]["ppo"]["lr"])
+        self.kappa, self.d, self.lr_dual = 0.0, cost_limit, lr_dual
+
+    def update(self) -> None:
+        if not self.traj:
+            return
+        s, raw, logp_old, r, c = self._batch()
         with torch.no_grad():
-            vr = self.vr(s).cpu().numpy()
-            vc = self.vc(s).cpu().numpy()
-        adv_r, ret_r = gae(r, vr, self.gamma, self.lae)
-        adv_c, ret_c = gae(c, vc, self.gamma, self.lae)
+            vr, vc = self.vr(s).numpy(), self.vc(s).numpy()
+        adv_r, ret_r = gae(r, vr, self.gamma, self.lam)
+        adv_c, ret_c = gae(c, vc, self.gamma, self.lam)
+        self.kappa = max(0.0, self.kappa + self.lr_dual * (float(c.sum()) - self.d))
         adv_r = (adv_r - adv_r.mean()) / (adv_r.std() + 1e-8)
         adv_c = (adv_c - adv_c.mean()) / (adv_c.std() + 1e-8)
-
-        # dual ascent on episode cost
-        Jc = float(c.sum())
-        self.lam = max(0.0, self.lam + self.lr_dual * (Jc - self.d))
-
-        adv = torch.as_tensor((adv_r - self.lam * adv_c) / (1 + self.lam),
-                              dtype=torch.float32, device=self.device)
-        ret_r_t = torch.as_tensor(ret_r, device=self.device)
-        ret_c_t = torch.as_tensor(ret_c, device=self.device)
-
+        adv = torch.as_tensor((adv_r - self.kappa * adv_c) / (1.0 + self.kappa))
+        ret_r, ret_c = torch.as_tensor(ret_r), torch.as_tensor(ret_c)
         for _ in range(self.epochs):
-            dist = self.pi.dist(s)
-            logp = dist.log_prob(raw).sum(-1)
-            ratio = torch.exp(logp - logp_old)
-            l_pi = -torch.min(ratio * adv,
-                              ratio.clamp(1 - self.clip, 1 + self.clip) * adv).mean()
-            loss = (l_pi + 0.5 * nn.functional.mse_loss(self.vr(s), ret_r_t)
-                    + 0.5 * nn.functional.mse_loss(self.vc(s), ret_c_t))
-            self.opt.zero_grad(); loss.backward()
+            ratio = torch.exp(self.pi.dist(s).log_prob(raw).sum(-1) - logp_old)
+            l_pi = -torch.min(ratio * adv, ratio.clamp(1 - self.clip, 1 + self.clip) * adv).mean()
+            loss = l_pi + 0.5 * nn.functional.mse_loss(self.vr(s), ret_r) \
+                + 0.5 * nn.functional.mse_loss(self.vc(s), ret_c)
+            self.opt.zero_grad()
+            loss.backward()
             nn.utils.clip_grad_norm_(self.pi.parameters(), 0.5)
             self.opt.step()
         self.traj.clear()
-        return {"lambda": self.lam, "Jc": Jc}
-
-    def save(self, path):
-        torch.save({"pi": self.pi.state_dict(), "vr": self.vr.state_dict(),
-                    "vc": self.vc.state_dict(), "lam": self.lam}, path)
-
-    def load(self, path):
-        ck = torch.load(path, map_location=self.device)
-        self.pi.load_state_dict(ck["pi"]); self.vr.load_state_dict(ck["vr"])
-        self.vc.load_state_dict(ck["vc"]); self.lam = ck.get("lam", 0.0)
