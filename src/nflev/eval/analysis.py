@@ -567,6 +567,35 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
           all(m in sig and float(t_cost.set_index("method").loc[m, "mean_diff"]) < 0 for m in LEARNED_ALL
               if m in set(t_cost.method)), str(sig))
 
+    # ablations: change relative to the complete framework (same days, same seeds)
+    for sc in ("S3", "S5"):
+        base = get("nested", sc)
+        if base is None:
+            continue
+        for v in ABL_LABELS:
+            if v == "main":
+                continue
+            m = "nested-noL3" if v in ("abl_no_l3", "ablation") else "nested"
+            r = get(m, sc, v)
+            if r is None:
+                continue
+            N.add(f"abl delta cost {v} {sc}", 100 * (r["cost_eur"] / base["cost_eur"] - 1), 1)
+            N.add(f"abl delta cost abs {v} {sc}", abs(100 * (r["cost_eur"] / base["cost_eur"] - 1)), 1)
+            C.add(f"abl_{v}_costlier_{sc}", r["cost_eur"] > base["cost_eur"],
+                  f"{r['cost_eur']:.1f} vs {base['cost_eur']:.1f}")
+    # stress: nested versus the price-aware heuristic with Level 3
+    for sc in ("S5", "S7"):
+        nst, pa = get("nested", sc), get("price_aware+L3", sc)
+        if nst is not None and pa is not None:
+            C.add(f"nested_less_curtailment_than_pa_{sc}", nst["curtailed_kwh"] < pa["curtailed_kwh"],
+                  f"{nst['curtailed_kwh']:.1f} vs {pa['curtailed_kwh']:.1f}")
+            C.add(f"nested_fewer_viol_than_pa_{sc}", nst["violation_rate_pct"] < pa["violation_rate_pct"],
+                  f"{nst['violation_rate_pct']:.3f} vs {pa['violation_rate_pct']:.3f}")
+            C.add(f"nested_higher_sq_than_pa_{sc}", nst["service_quality"] > pa["service_quality"],
+                  f"{nst['service_quality']:.4f} vs {pa['service_quality']:.4f}")
+            C.add(f"nested_cheaper_than_pa_{sc}", nst["cost_eur"] < pa["cost_eur"],
+                  f"{nst['cost_eur']:.1f} vs {pa['cost_eur']:.1f}")
+
     for _, r in t_cost.iterrows():
         N.add(f"diff cost {r['method']}", abs(r["mean_diff"]), 1)
         N.add(f"pholm cost {r['method']}", "<0.001" if r["p_holm"] < 0.001 else f"{r['p_holm']:.3f}")
