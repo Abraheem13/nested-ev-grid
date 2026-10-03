@@ -78,6 +78,8 @@ citation did not support the sentence it was attached to.
 | hirth2018 | OK | ENTSO-E Transparency Platform review, Applied Energy 225:1054–1067, 2018, doi:10.1016/j.apenergy.2018.04.048. |
 | pecanstreet | OK | Pecan Street Inc., Dataport (attribution required). |
 | yeh2023sustaingym | OK | SustainGym, NeurIPS 2023 Datasets and Benchmarks (Yeh et al.). |
-| xu2016priority | OK | Xu, Pan, Tong, IEEE TAC 61(12), 2016, doi:10.1109/TAC.2016.2541305 (least-laxity priority rule). |
+| xu2016priority | OK | Y. Xu, F. Pan, L. Tong, "Dynamic scheduling for charging electric vehicles: A priority rule," IEEE TAC 61(12), 2016 (least-laxity-first principle; also arXiv:1602.00372). Page numbers could not be confirmed and are omitted. |
 | huangfu2018 | OK | HiGHS, Math. Prog. Comp. 10(1):119–142, 2018, doi:10.1007/s12532-017-0130-5. |
 | gupta2017 | OK | Gupta, Egorov, Kochenderfer, ALA workshop at AAMAS 2017 (parameter sharing). |
+| silver2018residual | OK | T. Silver, K. Allen, J. Tenenbaum, L. Kaelbling, "Residual policy learning," arXiv:1812.06298, 2018. |
+| johannink2019residual | OK | T. Johannink et al., "Residual reinforcement learning for robot control," ICRA 2019, pp. 6023–6029. |

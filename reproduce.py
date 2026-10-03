@@ -32,7 +32,8 @@ ROOT = pathlib.Path(__file__).resolve().parent
 ART = ROOT / "artifacts"
 PY = sys.executable
 SEEDS = [0, 1, 2]
-ABLATIONS = ["no_l1", "flat_timescale", "no_behavior", "no_l3", "no_curriculum", "no_guard", "proportional"]
+ABLATIONS = ["no_prior", "no_l1", "flat_timescale", "no_behavior", "no_l3", "no_curriculum", "no_guard",
+             "proportional"]
 LEARNED_BASELINES = ["flat_ddpg", "ppo_lag", "cpo", "hrl"]
 RULES = ["uncoordinated", "tou", "price_aware", "lp_opf"]
 MAIN_SCEN = ["S1", "S2", "S3", "S4", "S5"]
@@ -169,15 +170,18 @@ def provenance():
 
 
 def compile_paper():
-    engine = shutil.which("latexmk") or shutil.which("pdflatex")
+    """Compile paper/main.tex (three passes resolve references) and run the
+    static and log checks of scripts/check_paper.py."""
+    engine = shutil.which("pdflatex")
     if engine is None:
-        print("== paper: no LaTeX engine found; sources are in paper/ (compile with pdflatex main.tex)")
+        print("== paper: no LaTeX engine found; running static checks only")
+        subprocess.run([PY, "scripts/check_paper.py"], cwd=ROOT, check=True)
         return
-    cmd = ([engine, "-pdf", "-interaction=nonstopmode", "-halt-on-error", "main.tex"]
-           if engine.endswith("latexmk") else [engine, "-interaction=nonstopmode", "-halt-on-error", "main.tex"])
-    for _ in range(1 if engine.endswith("latexmk") else 3):
-        subprocess.run(cmd, cwd=ROOT / "paper", check=True)
-    print("== paper: paper/main.pdf")
+    for _ in range(3):
+        subprocess.run([engine, "-interaction=nonstopmode", "-halt-on-error", "main.tex"],
+                       cwd=ROOT / "paper", check=True, stdout=subprocess.DEVNULL)
+    subprocess.run([PY, "scripts/check_paper.py", "--log"], cwd=ROOT, check=True)
+    print("== paper: paper/main.pdf (all checks passed)")
 
 
 def main():
@@ -210,7 +214,8 @@ def main():
         (ART / "provenance.json").write_text(json.dumps(provenance(), indent=2))
     from nflev.eval.analysis import build_all
     build_all(ART, ROOT / "paper" / "generated")
-    compile_paper()
+    if not a.quick:                  # the quick smoke run lacks data for several claims
+        compile_paper()
 
 
 if __name__ == "__main__":

@@ -86,7 +86,7 @@ class CPO(OnPolicyBase):
             return (ratio * adv_r).mean(), (ratio * adv_c).mean()
 
         sr, sc = surrogates()
-        sr0, sc0 = float(sr), float(sc)
+        sr0, sc0 = float(sr.detach()), float(sc.detach())
         g = _grad(sr, self.pi, retain=True)
         b = _grad(sc, self.pi)
         fvp = lambda v: self._fvp(kl_fn, v)  # noqa: E731

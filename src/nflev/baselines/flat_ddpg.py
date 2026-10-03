@@ -9,7 +9,6 @@ penalty, so safety must be learned.
 """
 from __future__ import annotations
 
-import csv
 import pathlib
 import time
 
@@ -19,7 +18,8 @@ import torch
 from ..agents.ddpg import DDPGAgent
 from ..env.charging_env import L1_OBS_DIM, L2_OBS_DIM, ChargingEnv
 from ..env.episode import make_episode
-from ..training.common import Curriculum, aggregator_rewards, noise_schedule, voltage_penalty
+from ..training.common import (Curriculum, TrainLog, TrainState, aggregator_rewards, noise_schedule,
+                               voltage_penalty)
 
 
 def flat_obs(env) -> np.ndarray:
@@ -71,10 +71,14 @@ def train_flat_ddpg(cfg: dict, fleet: str, network: str, seed: int, out_dir: pat
     ctl = FlatDDPG(cfg, env.n_agg, seed)
     cur = Curriculum(cfg)
     out_dir.mkdir(parents=True, exist_ok=True)
-    f = open(out_dir / "train_log.csv", "w", newline="")
-    w = None
+    state, start = TrainState(out_dir, int(cfg["training"].get("checkpoint_every", 50))), 0
+    st = state.load()
+    if st is not None:                                   # resume an interrupted run
+        ctl, cur, rng, start = st["ctl"], st["cur"], st["rng"], st["ep"]
+        print(f"resuming {out_dir.name} at episode {start}", flush=True)
+    log = TrainLog(out_dir / "train_log.csv", start)
     t_start = time.time()
-    for ep in range(episodes):
+    for ep in range(start, episodes):
         ctl.agent.noise = noise_schedule(cfg, ep)
         spec = make_episode(cfg, fleet, "train", cur.n_ev(rng), seed=10_000 * (seed + 1) + ep)
         env.reset(spec)
@@ -95,15 +99,13 @@ def train_flat_ddpg(cfg: dict, fleet: str, network: str, seed: int, out_dir: pat
         m = env.episode_metrics()
         cur.report(m)
         row = {"episode": ep, "stage": cur.idx, "n_ev": env.n_ev, **m, "wall_s": round(time.time() - t0, 3)}
-        if w is None:
-            w = csv.DictWriter(f, fieldnames=list(row))
-            w.writeheader()
-        w.writerow(row)
-        f.flush()
+        log.write(row)
+        state.maybe_save(ep + 1, episodes, {"ctl": ctl, "cur": cur, "rng": rng})
         if ep % log_every == 0:
             print(f"[flat_ddpg/{fleet}/{network}/s{seed}] ep{ep:4d} stage{cur.idx} cost={m['cost_eur']:.1f} "
                   f"SQ={m['service_quality']:.3f} viol={m['violation_rate_pct']:.2f}%", flush=True)
-    f.close()
+    log.close()
     torch.save({"model": ctl.state_dict(), "seed": seed, "fleet": fleet, "network": network,
                 "train_wall_s": time.time() - t_start}, out_dir / "model.pt")
+    state.finish()
     return {"wall_s": time.time() - t_start}

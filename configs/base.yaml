@@ -14,7 +14,7 @@ network:
   base_load_scale: null       # null -> calibrated (see nflev.env.calibration)
 
 voltage:
-  v_min: 0.95                 # IEEE 1547-2018 floor
+  v_min: 0.95                 # ANSI C84.1 Range A service-voltage floor
   v_critical: 0.90            # Q injection saturates at this voltage
   correction_margin: 0.001    # delta: Level 3 targets v_min + delta
   max_correction_iters: 8
@@ -77,10 +77,16 @@ level2:
   deadline_guard: true        # always serve vehicles whose laxity is exhausted
   disaggregation: llf         # llf (least-laxity-first) | proportional
   shared: true                # one actor-critic shared by the aggregators (id one-hot in the state)
+  prior: residual             # residual | feature | none: cheapest-slot plan as residual base,
+                              # as an input feature only, or not at all
+  residual_scale: 0.5         # rho in u = clip(u0 + rho (2a - 1), 0, 1)
+  residual_init: true         # actor starts at zero residual (output layer ~0)
   reward: {mode: advantage, margin: 1.0, unmet: 2.0, urgency: 0.5, curt: 0.5}
 
 training:
   episodes: 600
+  checkpoint_every: 50        # crash-safe resumable training state
+  snapshot_every: 100         # policy snapshots for learning curves
   ppo: {lr: 3.0e-4, gamma: 0.99, gae_lambda: 0.95, clip: 0.2, epochs: 10, entropy: 0.001}
   ddpg: {lr_actor: 1.0e-4, lr_critic: 1.0e-3, tau: 0.005, batch: 128, buffer: 200000,
          gamma: 0.99, noise_start: 0.3, noise_end: 0.05, noise_decay: 0.995, warmup: 1000}

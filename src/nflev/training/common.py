@@ -13,7 +13,11 @@ Level-1 reward (hourly):
 """
 from __future__ import annotations
 
+import csv
+import pathlib
+
 import numpy as np
+import torch
 
 
 def shortfall_by_agg(env) -> np.ndarray:
@@ -118,3 +122,55 @@ class Curriculum:
             self.hist = []
             return True
         return False
+
+
+class TrainState:
+    """Crash-safe training. Every `every` episodes the complete training state
+    (networks, optimizers, replay buffers, curriculum and RNG states) is pickled
+    to out_dir/checkpoint.pt; a restarted run resumes from it and continues as
+    if it had not been interrupted. The file is deleted when training ends."""
+
+    def __init__(self, out_dir: pathlib.Path, every: int = 50):
+        self.path = out_dir / "checkpoint.pt"
+        self.every = every
+
+    def load(self) -> dict | None:
+        if not self.path.exists():
+            return None
+        st = torch.load(self.path, map_location="cpu", weights_only=False)
+        torch.set_rng_state(st["torch_rng"])
+        return st
+
+    def maybe_save(self, ep_done: int, total: int, objs: dict) -> None:
+        if ep_done % self.every or ep_done >= total:
+            return
+        tmp = self.path.with_suffix(".tmp")
+        torch.save({"ep": ep_done, "torch_rng": torch.get_rng_state(), **objs}, tmp)
+        tmp.replace(self.path)
+
+    def finish(self) -> None:
+        self.path.unlink(missing_ok=True)
+
+
+class TrainLog:
+    """train_log.csv writer that keeps the rows of a resumed run."""
+
+    def __init__(self, path: pathlib.Path, resume_ep: int = 0):
+        rows = []
+        if resume_ep > 0 and path.exists():
+            with open(path, newline="") as f:
+                rows = [r for r in csv.DictReader(f) if int(r["episode"]) < resume_ep]
+        self.f = open(path, "w", newline="")
+        self.w = None
+        for r in rows:
+            self.write(r)
+
+    def write(self, row: dict) -> None:
+        if self.w is None:
+            self.w = csv.DictWriter(self.f, fieldnames=list(row))
+            self.w.writeheader()
+        self.w.writerow(row)
+        self.f.flush()
+
+    def close(self) -> None:
+        self.f.close()

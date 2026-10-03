@@ -167,3 +167,40 @@ def test_ddpg_transitions_are_aligned(monkeypatch, tmp_path):
     for s, r, s2, d in stored:
         assert r == s                        # reward produced by the action taken in state s
         assert s2 == s + 1                   # next state is the following interval
+
+
+def test_training_resume_is_exact(tmp_path, monkeypatch):
+    """A run that dies right after a checkpoint and is restarted produces the same
+    policy and training log as an uninterrupted run."""
+    import copy
+    import torch
+    import nflev.training.trainer as T
+    cfg = copy.deepcopy(CFG)
+    cfg["training"].update(checkpoint_every=2, snapshot_every=1000)
+    cfg["training"]["ddpg"].update(warmup=50, batch=16)
+    cfg["simulation"]["episode_hours"] = 4
+    full, part = tmp_path / "full", tmp_path / "part"
+    T.train_nested(cfg, "residential", "ieee33", 0, "none", full, episodes=4, log_every=100)
+
+    class Died(Exception):
+        pass
+    orig_save = T.TrainState.maybe_save
+
+    def save_then_die(self, ep_done, total, objs):
+        orig_save(self, ep_done, total, objs)
+        if ep_done == 2:
+            raise Died
+    monkeypatch.setattr(T.TrainState, "maybe_save", save_then_die)
+    with pytest.raises(Died):
+        T.train_nested(cfg, "residential", "ieee33", 0, "none", part, episodes=4, log_every=100)
+    monkeypatch.setattr(T.TrainState, "maybe_save", orig_save)
+    assert (part / "checkpoint.pt").exists()
+    T.train_nested(cfg, "residential", "ieee33", 0, "none", part, episodes=4, log_every=100)
+    assert not (part / "checkpoint.pt").exists()
+    a = torch.load(full / "model.pt", weights_only=False)["l2"][0]["actor"]
+    b = torch.load(part / "model.pt", weights_only=False)["l2"][0]["actor"]
+    assert all(torch.equal(a[k], b[k]) for k in a)
+
+    def rows(path):        # drop the wall-clock column
+        return [",".join(r.split(",")[:-1]) for r in path.read_text().splitlines()]
+    assert rows(full / "train_log.csv") == rows(part / "train_log.csv")

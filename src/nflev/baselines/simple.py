@@ -75,24 +75,5 @@ class PriceAware(Policy):
 
     def act(self, env):
         _flat_corridor(env)
-        tau = int(round(env.t_h / env.interval_h))
-        n_tau = int(round(env.spec.horizon_h / env.interval_h))
-        known = tau + int(round(env.look / env.interval_h))   # first interval with unknown price
-        slot_kwh = env.p_max * env.eff * env.interval_h
-        need = env.need()
         for k in range(env.n_agg):
-            rates = {}
-            for i in np.flatnonzero(env.connected & (env.agg == k)):
-                last = min(n_tau, int(np.floor(env.dep[i] / env.interval_h + 1e-9)))
-                slots = np.arange(tau, max(tau + 1, last))
-                k_need = int(np.ceil(need[i] / slot_kwh - 1e-9))
-                if k_need <= 0:
-                    continue
-                lmps = np.array([env.lmp(s * env.interval_h) for s in slots])
-                unknown = slots >= known
-                if unknown.any():          # naive forecast: mean of the known window
-                    lmps[unknown] = lmps[~unknown].mean()
-                chosen = slots[np.argsort(lmps, kind="stable")[:k_need]]
-                if tau in chosen:
-                    rates[int(i)] = env.p_max
-            env.set_rates(k, rates, 0.0)
+            env.set_rates(k, {int(i): env.p_max for i in env.price_plan(k)}, 0.0)

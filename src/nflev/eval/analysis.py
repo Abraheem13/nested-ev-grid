@@ -125,11 +125,11 @@ def fmt_p(p):
 
 
 def macro_name(*parts) -> str:
-    """'uncoordinated+L3 S1 cost' -> 'UncoordinatedLThreeSOneCost' (LaTeX macro names
-    may contain letters only)."""
+    """'uncoordinated+L3 S1 cost' -> 'GUncoordinatedLThreeSOneCost' (LaTeX macro names
+    may contain letters only; the G prefix marks generated values)."""
     import re
     words = re.split(r"[^A-Za-z0-9]+", " ".join(str(p) for p in parts))
-    s = "".join(w[:1].upper() + w[1:] for w in words if w)
+    s = "G" + "".join(w[:1].upper() + w[1:] for w in words if w)
     for d, w in zip("0123456789", ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven",
                                    "Eight", "Nine"]):
         s = s.replace(d, w)
@@ -210,7 +210,8 @@ def table_stats(t_cost, t_sq, path):
     path.write_text("\n".join(lines) + "\n")
 
 
-ABL_LABELS = {"main": "Complete framework", "abl_no_l1": "No Level 1 (fixed corridor)",
+ABL_LABELS = {"main": "Complete framework", "abl_no_prior": "No planning prior (direct set point)",
+              "abl_no_l1": "No Level 1 (fixed corridor)",
               "abl_flat_timescale": "Single timescale (L1 every 15 min)",
               "abl_no_behavior": "No behavioural model (L3a)", "abl_no_l3": "No Level 3 (trained without)",
               "ablation": "Level 3 removed at evaluation", "abl_no_curriculum": "No curriculum",
@@ -320,6 +321,46 @@ def table_compute(art, path):
     return df
 
 
+def table_hyper(cfg: dict, path: pathlib.Path) -> None:
+    """Hyperparameters, read from configs/base.yaml (cannot drift from the code)."""
+    t, d, pp, l2 = cfg["training"], cfg["training"]["ddpg"], cfg["training"]["ppo"], cfg["level2"]
+
+    def thin(x):
+        return f"{int(x):,}".replace(",", "\\,")
+    rows = [
+        ("Level 1 (PPO)", "actor/critic 256--128--64, Beta policy"),
+        ("", f"lr {pp['lr']:g}, $\\gamma$ {pp['gamma']}, GAE $\\lambda$ {pp['gae_lambda']}, clip {pp['clip']}"),
+        ("", f"{pp['epochs']} epochs per update, entropy {pp['entropy']:g}"),
+        ("Level 2 (DDPG)", "actor/critic 256--128--64, shared, one-hot id"),
+        ("", f"lr actor/critic {d['lr_actor']:g}/{d['lr_critic']:g}, $\\gamma$ {d['gamma']}, $\\tau$ {d['tau']}"),
+        ("", f"batch {d['batch']}, buffer {thin(d['buffer'])}, warm-up {thin(d['warmup'])} transitions"),
+        ("", f"noise {d['noise_start']}$\\to${d['noise_end']} (decay {d['noise_decay']}/episode)"),
+        ("", f"residual scale $\\rho$ {l2.get('residual_scale', 1.0)}"),
+        ("Training", f"{t['episodes']} episodes; curriculum window {cfg['curriculum']['window']}"),
+        ("Level 3", f"$\\delta$ {cfg['voltage']['correction_margin']} p.u., $S_i$ {cfg['reactive_power']['s_rated_kva']} kVA, "
+                    f"$\\le${cfg['voltage']['max_correction_iters']} power flows"),
+    ]
+    lines = [r"\begin{tabular}{@{}ll@{}}", r"\toprule"]
+    lines += [f"{a} & {b} \\\\" for a, b in rows]
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    path.write_text("\n".join(lines) + "\n")
+
+
+class Claims:
+    """Qualitative statements made in the paper, evaluated on the data.
+    scripts/check_paper.py fails if the text tags a claim (% claim: name) that
+    is false or missing."""
+
+    def __init__(self):
+        self.c = {}
+
+    def add(self, name: str, value: bool, detail: str = "") -> None:
+        self.c[name] = {"holds": bool(value), "detail": detail}
+
+    def write(self, path: pathlib.Path) -> None:
+        path.write_text(json.dumps(self.c, indent=2))
+
+
 # -------------------------------------------------------------------- figures
 def figures(s, d, art, out):
     import matplotlib
@@ -395,20 +436,80 @@ def figures(s, d, art, out):
 
 
 # ------------------------------------------------------------------ numbers
-def numbers(s, d, t_cost, t_sq, compute_df, art, out):
-    N = Numbers()
-    for sc in ["S1", "S2", "S3", "S4", "S5", "S6", "S7"]:
-        for m in ORDER:
-            r = row(s, "main", m, sc)
-            if r is None:
-                continue
-            N.add(f"{m} {sc} cost", r["cost_eur"], 1)
-            N.add(f"{m} {sc} cpk", r["cost_per_kwh"], 4)
-            N.add(f"{m} {sc} sq", r["service_quality"], 3)
-            N.add(f"{m} {sc} viol", r["violation_rate_pct"], 2)
-            N.add(f"{m} {sc} vmin", r["min_voltage_pu"], 4)
-            N.add(f"{m} {sc} curt", r["curtailed_kwh"], 1)
-            N.add(f"{m} {sc} qact", r["q_activation_pct"], 2)
+MACRO_METRICS = [("cost", "cost_eur", 1), ("cpk", "cost_per_kwh", 4), ("sq", "service_quality", 3),
+                 ("viol", "violation_rate_pct", 2), ("vmin", "min_voltage_pu", 4),
+                 ("curt", "curtailed_kwh", 1), ("qact", "q_activation_pct", 2)]
+LEARNED_ALL = ["flat_ddpg", "flat_ddpg+L3", "ppo_lag", "ppo_lag+L3", "cpo", "cpo+L3", "hrl", "hrl+L3"]
+
+
+def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
+    N, C = Numbers(), Claims()
+    default = ("residential", "ieee33", "test")
+    for _, r in s.iterrows():                       # every summary row -> macros
+        key = [r["method"], r["scenario"]]
+        if r["variant"] != "main" or (r["fleet"], r["network"], r["split"]) != default:
+            key = [r["variant"], r["method"], r["scenario"], r["fleet"], r["network"], r["split"]]
+        for short, col, nd in MACRO_METRICS:
+            N.add(" ".join(key + [short]), r[col], nd)
+        N.add(" ".join(key + ["sq pct"]), 100 * r["service_quality"], 1)
+
+    def get(m, sc, v="main"):
+        return row(s, v, m, sc)
+
+    scen = [sc for sc in ["S1", "S2", "S3", "S4", "S5"] if get("nested", sc) is not None]
+    sav, gap_lp, gap_pa, gap_l = {}, {}, {}, {}
+    for sc in scen:
+        nest, unc = get("nested", sc), get("uncoordinated", sc)
+        lp, pa = get("lp_opf+L3", sc), get("price_aware+L3", sc)
+        if unc is not None:
+            sav[sc] = 100 * (1 - nest["cost_eur"] / unc["cost_eur"])
+            N.add(f"saving nested unc {sc}", sav[sc], 1)
+        if lp is not None:
+            gap_lp[sc] = 100 * (nest["cost_eur"] / lp["cost_eur"] - 1)
+            N.add(f"gap nested lp {sc}", abs(gap_lp[sc]), 1)
+        if pa is not None:
+            gap_pa[sc] = 100 * (nest["cost_eur"] / pa["cost_eur"] - 1)
+            N.add(f"gap nested pa {sc}", abs(gap_pa[sc]), 1)
+        learned = [(m, get(m, sc)) for m in LEARNED_ALL if get(m, sc) is not None]
+        if learned:
+            best_m, best = min(learned, key=lambda x: x[1]["cost_eur"])
+            gap_l[sc] = 100 * (1 - nest["cost_eur"] / best["cost_eur"])
+            N.add(f"saving nested best learned {sc}", gap_l[sc], 1)
+            N.add(f"best learned {sc}", label(best_m), 0)
+    if sav:
+        N.add("saving nested unc min", min(sav.values()), 1)
+        N.add("saving nested unc max", max(sav.values()), 1)
+    if gap_lp:
+        N.add("gap nested lp max", max(gap_lp.values()), 1)
+    if gap_l:
+        N.add("saving nested best learned min", min(gap_l.values()), 1)
+        N.add("saving nested best learned max", max(gap_l.values()), 1)
+
+    def maxv(methods, metric="violation_rate_pct", scs=scen):
+        vals = [get(m, sc)[metric] for m in methods for sc in scs if get(m, sc) is not None]
+        return max(vals) if vals else float("nan")
+    N.add("viol unc max", maxv(["uncoordinated"]), 2)
+    N.add("viol tou max", maxv(["tou"]), 2)
+    N.add("viol learned noL max", maxv([m for m in LEARNED_ALL if "+L3" not in m]), 2)
+    N.add("viol l3 rules max", maxv(["uncoordinated+L3", "tou+L3", "price_aware+L3", "lp_opf+L3"]), 2)
+    N.add("viol nested max", maxv(["nested"]), 2)
+
+    # claims evaluated on the data (referenced in the text by % claim: name)
+    C.add("nested_zero_viol_main", maxv(["nested"]) == 0.0, f"max {maxv(['nested'])}")
+    C.add("nested_cheapest_learned_main", bool(gap_l) and min(gap_l.values()) > 0, json.dumps({k: round(float(v), 2) for k, v in gap_l.items()}))
+    C.add("nested_cheaper_than_unc_main", bool(sav) and min(sav.values()) > 0, json.dumps({k: round(float(v), 2) for k, v in sav.items()}))
+    C.add("nested_cheaper_than_tou_main", all(get("nested", sc)["cost_eur"] < get("tou+L3", sc)["cost_eur"]
+                                              for sc in scen if get("tou+L3", sc) is not None))
+    C.add("nested_cheaper_than_pa_main", bool(gap_pa) and max(gap_pa.values()) < 0, json.dumps({k: round(float(v), 2) for k, v in gap_pa.items()}))
+    C.add("nested_above_lp_main", bool(gap_lp) and min(gap_lp.values()) > 0, json.dumps({k: round(float(v), 2) for k, v in gap_lp.items()}))
+    C.add("l3_zero_viol_rules_main", maxv(["uncoordinated+L3", "tou+L3", "price_aware+L3", "lp_opf+L3"]) == 0.0)
+    C.add("unc_violates_main", maxv(["uncoordinated"]) > 0)
+    C.add("learned_noL3_violate", maxv([m for m in LEARNED_ALL if "+L3" not in m]) > 0)
+    sig = t_cost[t_cost.p_holm < 0.05].method.tolist() if len(t_cost) else []
+    C.add("nested_sig_cheaper_all_learned_S3",
+          all(m in sig and float(t_cost.set_index("method").loc[m, "mean_diff"]) < 0 for m in LEARNED_ALL
+              if m in set(t_cost.method)), str(sig))
+
     for _, r in t_cost.iterrows():
         N.add(f"diff cost {r['method']}", abs(r["mean_diff"]), 1)
         N.add(f"pholm cost {r['method']}", "<0.001" if r["p_holm"] < 0.001 else f"{r['p_holm']:.3f}")
@@ -418,8 +519,15 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out):
         N.add(f"scale {net}", c["base_load_scale"], 2)
         N.add(f"noev vmin {net}", c["no_ev_min_voltage_pu"], 4)
     N.add("eval days", int(d.episode.nunique()), 0)
-    N.add("train seeds", int(len([p for p in (art / "runs").glob("nested_residential_ieee33_none_s*")])), 0)
+    N.add("train seeds", int(len(list((art / "runs").glob("nested_residential_ieee33_none_s*")))), 0)
+    N.add("train episodes", int(cfg["training"]["episodes"]), 0)
+    if compute_df is not None and len(compute_df):
+        nest = compute_df[(compute_df.method == "nested") & (compute_df.ablation == "none")
+                          & (compute_df.fleet == "residential") & (compute_df.network == "ieee33")]
+        if len(nest):
+            N.add("train hours nested", nest.total_h.mean(), 1)
     N.write(out / "numbers.tex")
+    C.write(out / "claims.json")
     return N
 
 
@@ -448,6 +556,8 @@ def build_all(art: pathlib.Path, out: pathlib.Path) -> None:
     figures(s, d, art, out)
     import yaml
     from .diagrams import build_diagrams
-    build_diagrams(yaml.safe_load(open(ROOT / "configs" / "base.yaml")), out)
-    numbers(s, d, t_cost, t_sq, compute_df, art, out)
+    cfg = yaml.safe_load(open(ROOT / "configs" / "base.yaml"))
+    table_hyper(cfg, out / "tab_hyper.tex")
+    build_diagrams(cfg, out)
+    numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg)
     print(f"== analysis: tables, figures and numbers written to {out}")
