@@ -60,7 +60,7 @@ and 69-bus feeders with AC power flow, real day-ahead prices, household loads
 and charging sessions, \GEvalDays{} held-out days and \GTrainSeeds{} training
 seeds. At \SI{80}{\percent} EV penetration the controller cuts energy cost by
 \GSavingNestedUncSThree\% relative to uncoordinated charging with no voltage
-violations% claim: nested_zero_viol_main
+violations% claim: nested_zero_viol_nominal
 \ (uncoordinated: \GUncoordinatedSThreeViol\% of steps) and is the cheapest
 learned controller at every penetration level.% claim: nested_cheapest_learned_main
 \ At nominal load it costs \GGapNestedPaSThree\% more than a price-aware
@@ -69,8 +69,8 @@ heuristic that executes the same plan per vehicle;% claim: pa_cheaper_than_neste
 \GReductionCurtNestedPaSSeven\% less energy% claim: nested_less_curtailment_than_pa_S7
 \ and leaves \GReductionUnmetNestedPaSSeven\% less undelivered.% claim: nested_less_unmet_than_pa_S7
 \ Attached to the baselines, Level~3 removes their violations up to
-\SI{100}{\percent} penetration.% claim: l3_zero_viol_rules_main
-% claim: l3_zero_viol_learned_main
+\SI{100}{\percent} penetration when load forecasts are accurate.% claim: l3_zero_viol_rules_nominal
+% claim: l3_zero_viol_learned_nominal
 \end{abstract}
 
 \begin{IEEEkeywords}

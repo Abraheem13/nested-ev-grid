@@ -88,3 +88,14 @@ class PlanLLF(Policy):
         _flat_corridor(env)
         for k in range(env.n_agg):
             env.set_aggregate(k, env.prior_u(k), 0.0)
+
+
+class NoCharging(Policy):
+    """Reference only: no vehicle charges. Shows whether the household base load
+    alone violates the voltage floor (e.g. under base-load forecast error)."""
+    name = "noev"
+
+    def act(self, env):
+        _flat_corridor(env)
+        for k in range(env.n_agg):
+            env.set_rates(k, {}, 0.0)

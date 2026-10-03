@@ -16,7 +16,7 @@ Table~\ref{tab:main} compares all methods at S3. Uncoordinated charging costs
 \GUncoordinatedSThreeCost~\euro{} per day and violates the voltage floor in
 \GUncoordinatedSThreeViol\% of the \SI{60}{s} steps.% claim: unc_violates_main
 \ Attaching Level~3 removes every violation of the rule-based methods at
-S1--S5% claim: l3_zero_viol_rules_main
+S1, S2, S3 and S5% claim: l3_zero_viol_rules_nominal
 \ without changing their cost, because the correction uses reactive power and
 curtails only when the headroom is exhausted. The perfect-foresight LP-OPF is
 the cheapest method (\GLpOpfLThreeSThreeCost~\euro).% claim: lp_cheapest_S3
@@ -25,7 +25,7 @@ cheapest (\GPriceAwareLThreeSThreeCost~\euro).% claim: pa_cheapest_nonoracle_S3
 \ The nested controller costs \GNestedSThreeCost~\euro, which is
 \GSavingNestedUncSThree\% less than uncoordinated charging and
 \GGapNestedPaSThree\% more than the price-aware heuristic,% claim: pa_cheaper_than_nested_all_main
-\ with no violations,% claim: nested_zero_viol_main
+\ with no violations,% claim: nested_zero_viol_nominal
 \ a service quality of \GNestedSThreeSq{} and a mean retail price of
 \GNestedSThreeRetail~\euro/kWh. It is the cheapest learned controller,
 \GSavingNestedBestLearnedSThree\% below the best learned baseline
@@ -51,9 +51,17 @@ cheapest (\GPriceAwareLThreeSThreeCost~\euro).% claim: pa_cheapest_nonoracle_S3
 \label{sec:res-scen}
 Table~\ref{tab:scenarios} and Fig.~\ref{fig:scenarios} extend the comparison
 to S1--S5. Without Level~3, violations of uncoordinated and TOU charging
-grow with penetration, up to \GViolUncMax\% and \GViolTouMax\%,% claim: tou_violates_main
-\ while the nested controller and every ``+L3'' method stay at
-\GViolNestedMax\%.% claim: nested_zero_viol_main
+grow with penetration, up to \GViolUncMax\% and \GViolTouMax\%.% claim: tou_violates_main
+\ With accurate load forecasts (S1, S2, S3, S5) the nested controller and
+every ``+L3'' method record no violations.% claim: nested_zero_viol_nominal
+% claim: l3_zero_viol_rules_nominal
+% claim: l3_zero_viol_learned_nominal
+\ S4 is different: with a \SI{15}{\percent} base-load forecast error, the
+household load alone breaks the floor on \GNoevViolDaysSFour{} of the
+\GEvalDays{} days even when no vehicle charges. Level~3 removes most of these
+violations with the reactive headroom of idle chargers ($\Qmax_i=S_i$ at
+$P_i=0$); the remainder, at most \GViolNestedMaxSFour\% of the steps for the
+nested controller, occurs only on those days.% claim: s4_l3_violations_only_base_load_days
 \ The ordering of costs is the same at every penetration level: the nested
 controller saves \GSavingNestedUncMin--\GSavingNestedUncMax\% relative to
 uncoordinated charging, costs \GGapNestedPaMin--\GGapNestedPaMax\% more than the

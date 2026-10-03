@@ -17,16 +17,16 @@ from ..baselines.flat_ddpg import FlatDDPG
 from ..baselines.hrl import HRL
 from ..baselines.milp import LPOPF
 from ..baselines.safe_rl import SafeRL
-from ..baselines.simple import PlanLLF, PriceAware, TOUTimer, Uncoordinated
+from ..baselines.simple import NoCharging, PlanLLF, PriceAware, TOUTimer, Uncoordinated
 from ..training.trainer import ablated_cfg, load_nested
 
 RULES = {"uncoordinated": Uncoordinated, "tou": TOUTimer, "price_aware": PriceAware, "lp_opf": LPOPF,
-         "plan": PlanLLF}
+         "plan": PlanLLF, "noev": NoCharging}
 LEARNED_BASELINES = {"flat_ddpg", "ppo_lag", "cpo", "hrl"}
 LABELS = {
     "uncoordinated": "Uncoordinated", "tou": "TOU timer", "price_aware": "Price-aware heuristic",
     "lp_opf": "MPC LP-OPF (perfect foresight)", "flat_ddpg": "Flat DDPG", "ppo_lag": "PPO-Lagrangian",
-    "cpo": "CPO", "hrl": "Hierarchical RL", "nested": "Nested (proposed)", "plan": "Plan only (no learning)",
+    "cpo": "CPO", "hrl": "Hierarchical RL", "nested": "Nested (proposed)", "plan": "Plan only (no learning)", "noev": "No EV charging (reference)",
 }
 # Decomposition of the nested controller (what the learned levels add); Level 3 on.
 DECOMP = {"nested-flatprice": "Learned dispatch, flat price", "nested-planprice": "Plan dispatch, learned prices"}
@@ -35,7 +35,7 @@ DECOMP = {"nested-flatprice": "Learned dispatch, flat price", "nested-planprice"
 SHORT = {
     "uncoordinated": "Uncoord.", "tou": "TOU", "price_aware": "Price-aware", "lp_opf": "LP-OPF$^\\ast$",
     "flat_ddpg": "Flat DDPG", "ppo_lag": "PPO-Lag.", "cpo": "CPO", "hrl": "HRL", "nested": "Nested",
-    "plan": "Plan", "nested-flatprice": "Dispatch only", "nested-planprice": "Prices only",
+    "plan": "Plan", "noev": "No EVs", "nested-flatprice": "Dispatch only", "nested-planprice": "Prices only",
 }
 
 

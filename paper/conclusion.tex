@@ -5,7 +5,7 @@ cheapest-slot plan, and a non-parametric layer that resolves price acceptance
 and corrects voltage every \SI{60}{s} with inverter reactive power. On two IEEE
 feeders with AC power flow and real price, load and session data, the
 controller kept the voltage floor without violations up to \SI{100}{\percent}
-penetration,% claim: nested_zero_viol_main
+penetration with accurate load forecasts,% claim: nested_zero_viol_nominal
 \ was the cheapest learned controller,% claim: nested_cheapest_learned_main
 \ and, under a stress test beyond the feeder's reactive capacity, curtailed
 and left undelivered far less energy than a cost-greedy heuristic.% claim: nested_less_curtailment_than_pa_S7
@@ -15,8 +15,9 @@ and left undelivered far less energy than a cost-greedy heuristic.% claim: neste
 \ the learned levels buy robustness rather than a lower energy bill. Two
 practical lessons follow. First, a physics-based correction layer bounded by
 the inverter rating removed the violations of every coordinator we attached it
-to while changing its energy cost by at most \GLThreeCostChangeMax\%,% claim: l3_negligible_cost_main
-% claim: l3_zero_viol_rules_main
+to (with accurate load forecasts) while changing its energy cost by at most
+\GLThreeCostChangeMax\%,% claim: l3_negligible_cost_main
+% claim: l3_zero_viol_rules_nominal
 \ and should be part of every comparison. Second, learned dispatch is worth its
 complexity mainly when it starts from a sound plan and when grid stress, not
 price, is the binding concern. Future work includes unbalanced three-phase
