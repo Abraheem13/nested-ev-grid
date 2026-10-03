@@ -416,9 +416,15 @@ e&=(\lambda^{\mathrm{ref}}-\bar p)/\lambda^{\mathrm{ref}},\qquad \bar e\leftarro
 \label{eq:dual}
 \end{align}
 where $\bar p$ is the mean retail price paid in the episode and the integral
-is clipped against wind-up (gains and bounds in Table~\ref{tab:hyper}). Prices can thus
-shift charging in time while drivers pay about the reference rate on average;
-the realized retail prices are reported with the results.
+is clipped against wind-up (gains and bounds in Table~\ref{tab:hyper}). The
+multiplier holds the \emph{training-time} average; the final deterministic
+policy can still sit above or below it. After training we therefore calibrate
+the tariff level: a constant offset added to every execution price is found by
+bisection such that, on ten 2023 training days, the deterministic policy's mean
+retail price paid equals $\lambda^{\mathrm{ref}}$. The same calibration is
+applied to every learned method, and only training data are used. Prices can
+thus shift charging in time while drivers pay about the reference rate; the
+realized retail prices on the test days are reported with the results.
 
 DDPG~\cite{lillicrap2016} trains the actor and critic (256--128--64 units) on
 transitions $(s_\tau,a_\tau,r_\tau,s_{\tau+1})$, where $a_\tau$ is the action

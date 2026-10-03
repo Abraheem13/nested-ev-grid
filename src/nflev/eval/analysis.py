@@ -604,6 +604,17 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
     for net, c in calib.items():
         N.add(f"scale {net}", c["base_load_scale"], 2)
         N.add(f"noev vmin {net}", c["no_ev_min_voltage_pu"], 4)
+    offs = {}
+    for f in sorted((art / "runs").glob("*/price_calibration.json")):
+        name = f.parent.name
+        if "_residential_ieee33_none_s" in name:
+            offs.setdefault(name.split("_residential")[0], []).append(json.loads(f.read_text())["price_offset"])
+    if offs:
+        allv = [v for vs in offs.values() for v in vs]
+        N.add("calib offset absmax", max(abs(v) for v in allv), 3)
+        if "nested" in offs:
+            N.add("calib offset nested min", min(offs["nested"]), 3)
+            N.add("calib offset nested max", max(offs["nested"]), 3)
     N.add("eval days", int(d.episode.nunique()), 0)
     N.add("train seeds", int(len(list((art / "runs").glob("nested_residential_ieee33_none_s*")))), 0)
     N.add("train episodes", int(cfg["training"]["episodes"]), 0)
