@@ -17,27 +17,33 @@ from ..baselines.flat_ddpg import FlatDDPG
 from ..baselines.hrl import HRL
 from ..baselines.milp import LPOPF
 from ..baselines.safe_rl import SafeRL
-from ..baselines.simple import PriceAware, TOUTimer, Uncoordinated
+from ..baselines.simple import PlanLLF, PriceAware, TOUTimer, Uncoordinated
 from ..training.trainer import ablated_cfg, load_nested
 
-RULES = {"uncoordinated": Uncoordinated, "tou": TOUTimer, "price_aware": PriceAware, "lp_opf": LPOPF}
+RULES = {"uncoordinated": Uncoordinated, "tou": TOUTimer, "price_aware": PriceAware, "lp_opf": LPOPF,
+         "plan": PlanLLF}
 LEARNED_BASELINES = {"flat_ddpg", "ppo_lag", "cpo", "hrl"}
 LABELS = {
     "uncoordinated": "Uncoordinated", "tou": "TOU timer", "price_aware": "Price-aware heuristic",
     "lp_opf": "MPC LP-OPF (perfect foresight)", "flat_ddpg": "Flat DDPG", "ppo_lag": "PPO-Lagrangian",
-    "cpo": "CPO", "hrl": "Hierarchical RL", "nested": "Nested (proposed)",
+    "cpo": "CPO", "hrl": "Hierarchical RL", "nested": "Nested (proposed)", "plan": "Plan only (no learning)",
 }
+# Decomposition of the nested controller (what the learned levels add); Level 3 on.
+DECOMP = {"nested-flatprice": "Learned dispatch, flat price", "nested-planprice": "Plan dispatch, learned prices"}
 
 
 SHORT = {
     "uncoordinated": "Uncoord.", "tou": "TOU", "price_aware": "Price-aware", "lp_opf": "LP-OPF$^\\ast$",
     "flat_ddpg": "Flat DDPG", "ppo_lag": "PPO-Lag.", "cpo": "CPO", "hrl": "HRL", "nested": "Nested",
+    "plan": "Plan", "nested-flatprice": "Dispatch only", "nested-planprice": "Prices only",
 }
 
 
 def short_label(method: str) -> str:
     """Compact label for column-width tables (LP-OPF$^\\ast$: perfect foresight)."""
     base, l3 = split_name(method)
+    if method in DECOMP:
+        return SHORT[method]
     lab = SHORT[base]
     if base != "nested" and l3:
         lab += "+L3"
@@ -47,6 +53,8 @@ def short_label(method: str) -> str:
 
 
 def split_name(method: str) -> tuple[str, bool]:
+    if method in DECOMP:
+        return method, True
     if method.endswith("+L3"):
         return method[:-3], True
     if method == "nested-noL3":
@@ -55,6 +63,8 @@ def split_name(method: str) -> tuple[str, bool]:
 
 
 def label(method: str) -> str:
+    if method in DECOMP:
+        return DECOMP[method]
     base, l3 = split_name(method)
     lab = LABELS[base]
     if base != "nested" and l3:
@@ -78,6 +88,11 @@ def build(method: str, cfg: dict, n_agg: int, checkpoint: pathlib.Path | None = 
     base, l3 = split_name(method)
     if base in RULES:
         return RULES[base](), l3, cfg
+    if base in DECOMP:
+        ctl = load_nested(checkpoint, cfg)
+        ctl.price_offset = price_offset(checkpoint) if calibrated else 0.0
+        wrap = FlatPrice if base == "nested-flatprice" else PlanDispatch
+        return wrap(ctl), True, ablated_cfg(cfg, ctl.ablation)
     if base == "nested":
         ctl = load_nested(checkpoint, cfg)
         ctl.price_offset = price_offset(checkpoint) if calibrated else 0.0
@@ -95,3 +110,35 @@ def build(method: str, cfg: dict, n_agg: int, checkpoint: pathlib.Path | None = 
     ctl.explore = False
     ctl.price_offset = price_offset(checkpoint) if calibrated else 0.0
     return ctl, l3, cfg
+
+
+class FlatPrice:
+    """Nested controller with its learned dispatch but the flat reference tariff."""
+    name = "nested-flatprice"
+
+    def __init__(self, inner):
+        self.inner = inner
+
+    def reset(self, env) -> None:
+        self.inner.reset(env)
+        env.price_offset = 0.0
+
+    def act(self, env) -> None:
+        self.inner.act(env)
+        env.set_corridor(env.flat_price, env.flat_price + env.min_width)
+        env.actions = {k: (a[0], a[1], 0.0) for k, a in env.actions.items()}
+
+
+class PlanDispatch:
+    """Nested controller with its learned (calibrated) prices but plan dispatch u0_k."""
+    name = "nested-planprice"
+
+    def __init__(self, inner):
+        self.inner = inner
+
+    def reset(self, env) -> None:
+        self.inner.reset(env)
+
+    def act(self, env) -> None:
+        self.inner.act(env)
+        env.actions = {k: ("agg", env.prior_u(k), a[2]) for k, a in env.actions.items()}

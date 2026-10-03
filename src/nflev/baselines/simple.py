@@ -77,3 +77,14 @@ class PriceAware(Policy):
         _flat_corridor(env)
         for k in range(env.n_agg):
             env.set_rates(k, {int(i): env.p_max for i in env.price_plan(k)}, 0.0)
+
+
+class PlanLLF(Policy):
+    """The Level-2 planning prior executed without learning: aggregate set point
+    u0_k (cheapest-slot plan) through least-laxity-first allocation, flat price."""
+    name = "plan"
+
+    def act(self, env):
+        _flat_corridor(env)
+        for k in range(env.n_agg):
+            env.set_aggregate(k, env.prior_u(k), 0.0)
