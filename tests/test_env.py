@@ -228,3 +228,15 @@ def test_price_offset_shifts_execution_price_only_for_calibrated_policies():
     pol.act(env)
     env.run_interval()
     assert np.allclose(env.exec_price, cfg["retail"]["flat_price"])
+
+
+def test_gaussian_policy_stays_valid_for_extreme_log_std():
+    """CPO's trust-region step once drove log-std to +-inf (crash); the policy now
+    clamps it, so the distribution is always valid."""
+    import torch
+    from nflev.agents.ppo_lagrangian import GaussianPolicy
+    pi = GaussianPolicy(4, 3)
+    with torch.no_grad():
+        pi.log_std.copy_(torch.tensor([float("inf"), -float("inf"), 0.0]))
+    d = pi.dist(torch.zeros(2, 4))
+    assert torch.isfinite(d.stddev).all() and (d.stddev > 0).all()

@@ -106,11 +106,15 @@ class CPO(OnPolicyBase):
                 nu = max(0.0, (lam * ec - rr) / (ss + 1e-10))
                 step = (hg - nu * hb) / (lam + 1e-10)
         old = _flat(self.pi)
+        if not bool(torch.isfinite(step).all()):        # ill-conditioned solve: skip this update
+            step = torch.zeros_like(step)
         for frac in (1.0, 0.5, 0.25, 0.125, 0.0625):
             _set_flat(self.pi, old + frac * step)
             with torch.no_grad():
                 sr2, sc2 = surrogates()
                 kl = float(kl_fn())
+            if not (np.isfinite(float(sr2)) and np.isfinite(float(sc2)) and np.isfinite(kl)):
+                continue                                 # reject non-finite trial steps
             cost_ok = float(sc2) <= sc0 + 1e-6 if ec > 0 else ec + float(sc2) - sc0 <= max(0.0, ec)
             if kl <= 1.5 * self.delta and float(sr2) >= sr0 - 1e-6 and cost_ok:
                 break
