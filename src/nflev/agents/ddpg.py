@@ -48,7 +48,7 @@ class ReplayBuffer:
 
 
 class DDPGAgent:
-    def __init__(self, cfg: dict, s_dim: int, a_dim: int, seed: int):
+    def __init__(self, cfg: dict, s_dim: int, a_dim: int, seed: int, zero_init: bool = False):
         p = cfg["training"]["ddpg"]
         self.tau, self.batch, self.gamma = p["tau"], p["batch"], p["gamma"]
         self.warmup = p["warmup"]
@@ -58,6 +58,10 @@ class DDPGAgent:
         self.critic = mlp([s_dim + a_dim, *HIDDEN, 1])
         self.actor_t = mlp([s_dim, *HIDDEN, a_dim], nn.Sigmoid())
         self.critic_t = mlp([s_dim + a_dim, *HIDDEN, 1])
+        if zero_init:          # output layer ~0 -> sigmoid ~0.5, i.e. zero residual at the start
+            last = self.actor[-2]
+            nn.init.uniform_(last.weight, -1e-3, 1e-3)
+            nn.init.zeros_(last.bias)
         self.actor_t.load_state_dict(self.actor.state_dict())
         self.critic_t.load_state_dict(self.critic.state_dict())
         self.opt_a = torch.optim.Adam(self.actor.parameters(), lr=p["lr_actor"])

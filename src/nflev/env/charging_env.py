@@ -24,7 +24,7 @@ from .calibration import base_load_scale
 from .episode import EpisodeSpec
 from .qcontrol import ReactiveController
 
-L2_OBS_DIM = 27
+L2_OBS_DIM = 28
 L1_OBS_DIM = 11
 
 
@@ -53,6 +53,7 @@ class ChargingEnv:
         self.min_width, self.flat_price = r["min_corridor_width"], r["flat_price"]
         self.guard = cfg["level2"]["deadline_guard"]
         self.disagg = cfg["level2"].get("disaggregation", "llf")
+        self.prior_mode = cfg["level2"].get("prior", "none")
 
     # ================================================================ reset
     def reset(self, spec: EpisodeSpec) -> None:
@@ -86,6 +87,7 @@ class ChargingEnv:
         self.p_nom = self.net.p_load_mw * self.scale
         self.q_nom = self.net.q_load_mvar * self.scale
         self._unmet_acc = np.zeros(self.n_agg)
+        self._prior_cache = (-1, None)
         self._update_connections(0.0)
         self.last_res = self.pf.solve(self.p_nom * spec.load_actual[0], self.q_nom * spec.load_actual[0],
                                       warm=False)
@@ -244,6 +246,48 @@ class ChargingEnv:
                     price_now=price_now, price_ahead_mean=price_ahead)
         return info
 
+    # ====================================================== planning prior
+    def price_plan(self, k: int) -> np.ndarray:
+        """Deadline-aware cheapest-slot plan: the plugged-in vehicles of
+        aggregator k that still need energy and for which the current dispatch
+        interval is among the ceil(need / slot energy) cheapest intervals before
+        departure. Prices are known `price_lookahead_h` ahead; later intervals
+        are valued at the mean known price (naive forecast)."""
+        tau = int(round(self.t_h / self.interval_h))
+        n_tau = int(round(self.spec.horizon_h / self.interval_h))
+        known = tau + int(round(self.look / self.interval_h))
+        slot_kwh = self.p_max * self.eff * self.interval_h
+        lmps_all = np.array([self.lmp(s * self.interval_h) for s in range(tau, n_tau)])
+        unknown = np.arange(tau, n_tau) >= known
+        if unknown.any():
+            lmps_all[unknown] = lmps_all[~unknown].mean()
+        need = self.need()
+        chosen = []
+        for i in np.flatnonzero(self.connected & (self.agg == k)):
+            k_need = int(np.ceil(need[i] / slot_kwh - 1e-9))
+            if k_need <= 0:
+                continue
+            last = min(n_tau, int(np.floor(self.dep[i] / self.interval_h + 1e-9)))
+            lmps = lmps_all[: max(1, last - tau)]
+            if 0 in np.argsort(lmps, kind="stable")[:k_need]:          # slot 0 = now
+                chosen.append(int(i))
+        return np.asarray(chosen, int)
+
+    def prior_u(self, k: int) -> float:
+        """Aggregate set point (fraction of available power, as in
+        `llf_allocate`) that the cheapest-slot plan dispatches now."""
+        if self._prior_cache[0] != self.t_step:
+            need = self.need()
+            cap = np.minimum(self.p_max, need / (self.eff * self.interval_h))
+            live = self.connected & (need > 1e-6)
+            u = np.zeros(self.n_agg)
+            for j in range(self.n_agg):
+                avail = min(self.p_cap, float(cap[live & (self.agg == j)].sum()))
+                plan = self.price_plan(j)
+                u[j] = min(1.0, float(cap[plan].sum()) / avail) if avail > 0 and len(plan) else 0.0
+            self._prior_cache = (self.t_step, u)
+        return float(self._prior_cache[1][k])
+
     # ========================================================= observations
     def _lmp_ahead(self, hours: int) -> np.ndarray:
         i = int(self.t_h)
@@ -278,7 +322,8 @@ class ChargingEnv:
                self.lmp() / 200.0, *(self._lmp_ahead(self.look) / 200.0),
                self.corridor[0] / self.price_ceil, self.corridor[1] / self.price_ceil,
                len(mem) / 100.0, need.sum() / scale, min(self.p_cap, cap.sum()) / self.p_cap,
-               *lax_feat, (left.mean() / 12.0) if len(mem) else 0.0, self.accept_rate]
+               *lax_feat, (left.mean() / 12.0) if len(mem) else 0.0, self.accept_rate,
+               self.prior_u(k) if self.prior_mode != "none" else 0.0]
         return np.asarray(obs, dtype=np.float32)
 
     # ============================================================== metrics
