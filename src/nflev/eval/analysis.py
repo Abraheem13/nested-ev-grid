@@ -584,6 +584,21 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
           json.dumps({k: round(v, 3) for k, v in rp.items()}))
     C.add("nested_retail_below_ref_main", bool(rp) and max(rp.values()) < ref_price - 0.01,
           json.dumps({k: round(v, 3) for k, v in rp.items()}))
+    nonoracle = ["uncoordinated", "uncoordinated+L3", "tou", "tou+L3", "price_aware", "price_aware+L3",
+                 "nested"] + LEARNED_ALL
+    for sc in scen:
+        costs = {m: get(m, sc)["cost_eur"] for m in ORDER if get(m, sc) is not None}
+        if costs:
+            C.add(f"lp_cheapest_{sc}", min(costs, key=costs.get) in ("lp_opf", "lp_opf+L3"), str(min(costs, key=costs.get)))
+            no = {m: c for m, c in costs.items() if m in nonoracle}
+            C.add(f"pa_cheapest_nonoracle_{sc}", min(no, key=no.get) in ("price_aware", "price_aware+L3"),
+                  str(min(no, key=no.get)))
+    C.add("pa_cheaper_than_nested_all_main", bool(gap_pa) and min(gap_pa.values()) > 0,
+          json.dumps({k: round(float(v), 2) for k, v in gap_pa.items()}))
+    C.add("tou_violates_main", maxv(["tou"]) > 0)
+    if gap_pa:
+        N.add("gap nested pa min", min(gap_pa.values()), 1)
+        N.add("gap nested pa max", max(gap_pa.values()), 1)
     C.add("l3_zero_viol_rules_main", maxv(["uncoordinated+L3", "tou+L3", "price_aware+L3", "lp_opf+L3"]) == 0.0)
     C.add("unc_violates_main", maxv(["uncoordinated"]) > 0)
     C.add("learned_noL3_violate", maxv([m for m in LEARNED_ALL if "+L3" not in m]) > 0)
@@ -622,6 +637,9 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
             for k, col in (("curt", "curtailed_kwh"), ("unmet", "unmet_kwh")):
                 if plan[col] > 0:
                     N.add(f"decomp {k} vs plan {m} {sc}", 100 * (1 - r[col] / plan[col]), 0)
+            C.add(f"decomp_{m}_cheaper_than_plan_{sc}", r["cost_eur"] < plan["cost_eur"])
+            C.add(f"decomp_{m}_less_curt_than_plan_{sc}", r["curtailed_kwh"] < plan["curtailed_kwh"])
+            C.add(f"decomp_{m}_less_unmet_than_plan_{sc}", r["unmet_kwh"] < plan["unmet_kwh"])
         # stress: nested versus the price-aware heuristic with Level 3
     for sc in ("S5", "S7"):
         nst, pa = get("nested", sc), get("price_aware+L3", sc)
