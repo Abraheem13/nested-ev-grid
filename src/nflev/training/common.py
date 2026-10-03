@@ -58,27 +58,35 @@ def aggregator_rewards(cfg: dict, env, info: dict, w_retail: float | None = None
 
 
 class RetailMultiplier:
-    """Revenue-neutral dynamic tariff. The weight w of the retail term is a
-    Lagrange multiplier for the constraint  mean retail price paid = lambda_ref,
-    updated by dual ascent once per training episode:
-        w <- clip(w + eta (lambda_ref - p_paid) / lambda_ref, w_min, w_max)
-    (an equality constraint, so w may become negative).
-    Prices can then move charging in time, but drivers pay the flat reference
-    rate on average, as under the non-pricing baselines."""
+    """Revenue-neutral dynamic tariff. The weight w of the retail term is the
+    Lagrange multiplier of the constraint  mean retail price paid = lambda_ref,
+    set once per training episode by a PI Lagrangian update (Stooke et al., 2020),
+    which damps the oscillations of plain dual ascent:
+        e     = (lambda_ref - p_paid) / lambda_ref        (> 0: prices too low)
+        e_bar <- (1 - a) e_bar + a e                       (smoothed error)
+        I     <- clip(I + e, -I_max, I_max)                (anti-windup)
+        w     =  clip(K_p e_bar + K_i I, w_min, w_max)."""
 
     def __init__(self, cfg: dict):
         rn = cfg["level2"].get("revenue_neutral", {}) or {}
         self.enabled = bool(rn.get("enabled", False))
-        self.w = float(rn.get("w_init", cfg["level2"]["reward"]["margin"]))
-        self.eta = float(rn.get("eta", 0.5))
-        self.w_max = float(rn.get("w_max", 5.0))
-        self.w_min = float(rn.get("w_min", 0.0))
+        self.kp, self.ki = float(rn.get("kp", 0.0)), float(rn.get("ki", 0.1))
+        self.a = float(rn.get("ema", 1.0))
+        self.w_min, self.w_max = float(rn.get("w_min", 0.0)), float(rn.get("w_max", 5.0))
         self.ref = float(cfg["behavior"]["lambda_ref"])
+        self.w = float(rn.get("w_init", 0.0)) if self.enabled else float(cfg["level2"]["reward"]["margin"])
+        self.e_bar = 0.0
+        self.integral = self.w / self.ki if self.ki > 0 else 0.0
+        self.i_max = max(abs(self.w_min), abs(self.w_max)) / self.ki if self.ki > 0 else 0.0
 
     def update(self, m: dict) -> None:
         p = m.get("retail_price_paid", float("nan"))
-        if self.enabled and np.isfinite(p):
-            self.w = float(np.clip(self.w + self.eta * (self.ref - p) / self.ref, self.w_min, self.w_max))
+        if not (self.enabled and np.isfinite(p)):
+            return
+        e = (self.ref - p) / self.ref
+        self.e_bar = (1.0 - self.a) * self.e_bar + self.a * e
+        self.integral = float(np.clip(self.integral + e, -self.i_max, self.i_max))
+        self.w = float(np.clip(self.kp * self.e_bar + self.ki * self.integral, self.w_min, self.w_max))
 
 
 def voltage_penalty(env, info: dict) -> float:

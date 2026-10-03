@@ -109,7 +109,8 @@ def eval_jobs(seeds, episodes):
             add(r + "+L3", "S3", fleet, network, variant="general")
         for s in seeds:
             add("nested", "S3", fleet, network, ckpt=nested_ckpt(s, fleet, network), seed=s, variant="general")
-    for r in RULES:                                            # pre-crisis price regime (2019)
+    add("uncoordinated", "S3", split="alt", variant="regime")  # pre-crisis price regime (2019)
+    for r in RULES:
         add(r + "+L3", "S3", split="alt", variant="regime")
     for s in seeds:
         add("nested", "S3", split="alt", ckpt=nested_ckpt(s), seed=s, variant="regime")

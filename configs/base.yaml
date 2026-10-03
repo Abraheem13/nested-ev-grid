@@ -84,7 +84,7 @@ level2:
   residual_scale: 0.1         # rho in u = clip(u0 + rho (2a - 1), 0, 1)
   residual_init: true         # actor starts at zero residual (output layer ~0)
   reward: {mode: cost, margin: 1.0, unmet: 2.0, urgency: 0.5, curt: 0.5}
-  revenue_neutral: {enabled: true, w_init: 0.0, eta: 0.1, w_min: -2.0, w_max: 2.0}   # mean retail price = lambda_ref
+  revenue_neutral: {enabled: true, w_init: 0.0, kp: 2.0, ki: 0.05, ema: 0.2, w_min: -2.0, w_max: 2.0}   # PI Lagrangian: mean retail price = lambda_ref
 
 training:
   episodes: 600

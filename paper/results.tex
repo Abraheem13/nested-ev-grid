@@ -46,10 +46,10 @@
 
 \begin{table}[t]
 \centering
-\caption{Level-3 stress tests: S6 forbids charging from 19:00 to 20:00; S7 has 360 vehicles with inverters derated to 50\%.}
+\caption{Level-3 stress tests: S6 forbids charging from 19:00 to 20:00; S7 has 360 vehicles with inverters derated to 50\%. Violation rate (\%), minimum voltage (p.u.) and curtailed energy (kWh per day).}
 \label{tab:stress}
 \footnotesize
-\setlength{\tabcolsep}{3pt}
+\setlength{\tabcolsep}{2pt}
 \input{generated/tab_stress.tex}
 \end{table}
 
@@ -70,10 +70,10 @@
 
 \begin{table}[t]
 \centering
-\caption{Generalization at 80\% penetration: second feeder, real ACN-Data sessions and the 2019 price regime.}
+\caption{Generalization at 80\% penetration: second feeder, real ACN-Data sessions and the 2019 price regime (Unc.: uncoordinated; PA: price-aware; LP$^\ast$: perfect-foresight LP-OPF).}
 \label{tab:general}
 \footnotesize
-\setlength{\tabcolsep}{2.5pt}
+\setlength{\tabcolsep}{2pt}
 \input{generated/tab_general.tex}
 \end{table}
 
@@ -82,7 +82,7 @@
 
 \begin{table}[t]
 \centering
-\caption{Sensitivity of Level 3 at S3: correction margin $\delta$ and inverter rating $S_i$.}
+\caption{Sensitivity of Level 3 at S3 (nested controller): correction margin $\delta$ and inverter rating $S_i$ (default $\delta=0.001\pu$, $S_i=\SI{12}{kVA}$).}
 \label{tab:sensitivity}
 \footnotesize
 \setlength{\tabcolsep}{3pt}

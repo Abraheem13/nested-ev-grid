@@ -5,6 +5,7 @@
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{multirow}
+\usepackage{array}
 \usepackage{url}
 \usepackage{cite}
 \usepackage{xcolor}
@@ -319,14 +320,18 @@ substation active and reactive power, the current day-ahead price, the share of
 vehicles plugged in, their mean state of charge, the line-loading margin, the
 substation loading, the hour (sine and cosine) and the mean price over the
 next 12\,h. The action $a^{(1)}_t\in[0,1]^2$, drawn from Beta distributions,
-sets the corridor
+sets the centre $c_t$ and width $w_t$ of the corridor
+$[p^{\min}_t,p^{\max}_t]=[c_t-w_t/2,\,c_t+w_t/2]$ (clipped to
+$[p^{\mathrm{lo}},p^{\mathrm{hi}}]$):
 \begin{align}
-p^{\min}_t&=p^{\mathrm{lo}}+a^{(1)}_{t,1}\,(p^{\mathrm{hi}}-p^{\mathrm{lo}}-w),\nonumber\\
-p^{\max}_t&=p^{\min}_t+w+a^{(1)}_{t,2}\,(p^{\mathrm{hi}}-p^{\min}_t-w),
+c_t&=\lambda^{\mathrm{ref}}+(2a^{(1)}_{t,1}-1)\begin{cases}\lambda^{\mathrm{ref}}-p^{\mathrm{lo}}, & a^{(1)}_{t,1}<0.5,\\ p^{\mathrm{hi}}-\lambda^{\mathrm{ref}}, & \text{otherwise,}\end{cases}\nonumber\\
+w_t&=w^{\min}+a^{(1)}_{t,2}\,(w^{\max}-w^{\min}),
 \label{eq:corridor}
 \end{align}
 with bounds $p^{\mathrm{lo}}=0.05$, $p^{\mathrm{hi}}=\SI{0.40}{\text{\euro}/kWh}$ and
-minimum width $w=0.02$. The reward of hour $t$,
+widths $w^{\min}=0.02$, $w^{\max}=0.20$. The neutral action $(0.5,0.5)$ centres
+the corridor on the reference rate, so an untrained policy charges the flat
+tariff of the baselines. The reward of hour $t$,
 \begin{align}
 r^{(1)}_t={}&-\frac{C_t}{100}-50\,(20\,\Delta V_t)^2-10\,\mathbb{1}[\Delta V_t>0]\nonumber\\
 &-5\,\frac{U_t}{100}-0.5\,\frac{X_t}{100}+\omega\,\frac{R_t-\lambda^{\mathrm{ref}}E^{\mathrm{del}}_t}{100},
@@ -340,8 +345,8 @@ policy with clipping 0.2, $\gamma=0.99$ and GAE $\lambda=0.95$.
 
 \subsection{Level 2: plan-residual dispatch (DDPG, \SI{15}{min})}
 \emph{State.} The state of aggregator $k$, $s^{(2)}_{\tau,k}\in\mathbb{R}^{28}$,
-holds its bus voltage, the hour, the current price and the next 12 hourly
-day-ahead prices, the corridor, the number of plugged-in vehicles, their
+holds its bus voltage, the hour, the current price, the day-ahead prices of
+the current and the next 11 hours, the corridor, the number of plugged-in vehicles, their
 remaining energy need (total, and split into four laxity bins), the power they
 can absorb, their mean remaining dwell, the last acceptance rate, and the plan
 set point $u^0_{\tau,k}$ defined below. One actor--critic is shared by the five
@@ -397,13 +402,15 @@ prices, which lowers acceptance and pushes charging into expensive hours. We
 instead require the mean retail price paid to equal the flat reference rate
 $\lambda^{\mathrm{ref}}$ charged by the non-pricing baselines. The weight
 $\omega$ in~\eqref{eq:r1}--\eqref{eq:r2} is the Lagrange multiplier of this
-constraint, updated by dual ascent after every training episode,
-\begin{equation}
-\omega\leftarrow\mathrm{clip}\big(\omega+\eta_\omega\,(\lambda^{\mathrm{ref}}-\bar p)/\lambda^{\mathrm{ref}},\,\omega^{\min},\,\omega^{\max}\big),
+constraint. Plain dual ascent oscillated in our experiments, so we use a PI
+Lagrangian update~\cite{stooke2020pid} after every training episode,
+\begin{align}
+e&=(\lambda^{\mathrm{ref}}-\bar p)/\lambda^{\mathrm{ref}},\qquad \bar e\leftarrow(1-\alpha)\,\bar e+\alpha\,e,\nonumber\\
+\omega&=\mathrm{clip}\Big(K_p\,\bar e+K_i\textstyle\sum e,\ \omega^{\min},\ \omega^{\max}\Big),
 \label{eq:dual}
-\end{equation}
-where $\bar p$ is the mean retail price paid in the episode ($\eta_\omega$,
-$\omega^{\min}$ and $\omega^{\max}$ in Table~\ref{tab:hyper}). Prices can thus
+\end{align}
+where $\bar p$ is the mean retail price paid in the episode and the integral
+is clipped against wind-up (gains and bounds in Table~\ref{tab:hyper}). Prices can thus
 shift charging in time, but drivers pay the reference rate on average.
 
 DDPG~\cite{lillicrap2016} trains the actor and critic (256--128--64 units) on
@@ -559,5 +566,33 @@ authors thank the maintainers of ACN-Data, EV2Gym, SustainGym, MATPOWER and
 pandapower.
 
 \input{references.tex}
+
+\begingroup
+\footnotesize
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6\baselineskip}
+
+\textbf{Abraheem Rashid} is with the Department of Computer Science, Brunel
+University London, London, U.K. His research interests include nested and
+multi-timescale reinforcement learning and its application to power and energy
+systems.
+
+\textbf{Faisal Iradat} is with the Department of Computer Science, Institute of
+Business Administration, Karachi, Pakistan. His research interests include
+intelligent networked systems and applied machine learning.
+
+\textbf{Waseem Iqbal} is with the Department of Electrical and Computer
+Engineering, Sultan Qaboos University, Muscat, Oman. His research interests
+include smart grids, distributed energy resources, and control of sustainable
+energy systems.
+
+\textbf{Yawar Abbas Bangash} is with the Department of Smart Computing and Cyber
+Resilience, Faculty of Engineering and Technology, Sunway University, Selangor,
+Malaysia. His research interests include distributed intelligence and
+learning-based control.
+
+\textbf{Majdi Mansouri} is with the Department of Electrical and Computer
+Engineering, Sultan Qaboos University, Muscat, Oman.
+\endgroup
 
 \end{document}
