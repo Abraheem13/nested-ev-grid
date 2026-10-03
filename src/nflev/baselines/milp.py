@@ -1,152 +1,113 @@
-"""Centralized optimization baseline: perfect-information day-ahead LP.
+"""Model-predictive LP-OPF baseline (strongest model-based comparator).
 
-Formulation (matches the paper's 'Centralized MILP' baseline):
-  min  sum_{i,tau} LMP(tau) * c_{i,tau} * dtau
-  s.t. sum_tau eta * c_{i,tau} * dtau >= need_i            (energy delivery)
-       0 <= c_{i,tau} <= c_max * 1[connected(i,tau)]        (charger limits)
-       sum_{i in agg k} c_{i,tau} <= P_cap                  (transformer)
-       vmin_base(tau) + sum_k S_k * P_k(tau) >= 0.95        (LINEARIZED voltage)
+At every dispatch interval it solves, over the rest of the horizon,
 
-Voltage is linearized via empirically identified sensitivities S_k = dVmin/dP_k
-(one PF perturbation per aggregator bus). The deliberate scientific point:
-this baseline is optimal under its linearization, but when its schedule is
-replayed through the FULL AC environment the linearization error surfaces —
-reproducing the documented failure mode (v1 Table IV: MILP vmin 0.939).
-Solved with HiGHS through scipy.linprog. Energy delivery is soft (slack with
-high penalty) so the LP remains feasible at extreme penetration; binding slack
-is reported as infeasibility, reproducing the S5 'Infeasible' entry honestly.
+  min  sum_{i,s} lambda_s c_{i,s} D + M sum_i slack_i
+  s.t. sum_s eta c_{i,s} D + slack_i >= need_i                    (energy)
+       0 <= c_{i,s} <= p_max a_{i,s}                               (charger, availability)
+       sum_{i in k} c_{i,s} <= P_cap                               (aggregator transformer)
+       V0_n(s) + sum_k S_{n,k}(s) P_k(s) >= V_min + delta  for all buses n (linearised AC voltage)
+
+with perfect foresight of prices and of every vehicle's arrival, departure and
+need, and the *forecast* (nominal) base load. V0 and S are the no-EV voltages
+and finite-difference sensitivities of the full AC power flow at the forecast
+operating point of each interval. Only the first interval of the plan is
+applied; the problem is re-solved at the next interval with updated states
+(declined, curtailed or forecast-error effects are therefore corrected).
+Solved with HiGHS (scipy.optimize.linprog).
 """
 from __future__ import annotations
+
 import numpy as np
+from scipy import sparse
 from scipy.optimize import linprog
-import pandapower as pp
+
+from .simple import Policy, _flat_corridor
+
+SLACK_PENALTY = 5.0          # EUR per kWh of undelivered energy (>> any price)
 
 
-def identify_sensitivities(env, probe_kw: float = 200.0) -> tuple[float, np.ndarray]:
-    """Empirical dVmin/dP_k (p.u. per kW) at each aggregator bus."""
-    env._apply_loads(6.0)   # episode t=6 == 18:00 wall clock (peak)
-    env._solved_pf()
-    v0 = float(env.net.res_bus.vm_pu.min())
-    sens = np.zeros(env.n_agg)
-    for k in range(env.n_agg):
-        li = env.ev_load_idx[k]
-        p_orig = float(env.net.load.at[li, "p_mw"])
-        env.net.load.at[li, "p_mw"] = p_orig + probe_kw / 1000.0
-        pp.runpp(env.net, init="results", numba=True)
-        sens[k] = (float(env.net.res_bus.vm_pu.min()) - v0) / probe_kw
-        env.net.load.at[li, "p_mw"] = p_orig
-    pp.runpp(env.net, init="results", numba=True)
-    return v0, sens  # sens is negative (load depresses voltage)
+class LPOPF(Policy):
+    name = "lp_opf"
 
+    def reset(self, env) -> None:
+        self.n_tau = int(round(env.spec.horizon_h / env.interval_h))
+        self.v_floor = env.v_min + env.cfg["voltage"]["correction_margin"]
+        self.v0 = np.zeros((self.n_tau, env.net.n_bus))
+        self.sens = np.zeros((self.n_tau, env.net.n_bus, env.n_agg))
+        for s in range(self.n_tau):
+            m = env.spec.load_forecast[min(s, len(env.spec.load_forecast) - 1)]
+            self.v0[s], self.sens[s] = env.pf.voltage_sensitivity(
+                env.p_nom * m, env.q_nom * m, env.agg_bus)
+        self.solves = 0
+        self.slack_kwh = 0.0
 
-def base_vmin_profile(env, load_profile) -> np.ndarray:
-    """Predicted no-EV vmin per 15-min interval (perfect load foresight)."""
-    n = int(env.episode_h * 4)
-    out = np.zeros(n)
-    for tau in range(n):
-        for k in range(env.n_agg):
-            env.net.load.at[env.ev_load_idx[k], "p_mw"] = 0.0
-        env._apply_loads(tau / 4.0)
-        env._solved_pf()
-        out[tau] = float(env.net.res_bus.vm_pu.min())
-    return out
-
-
-class MILPPolicy:
-    """Solves the day-ahead LP once at reset, then replays the schedule."""
-    name = "milp"
-
-    def __init__(self, v_floor: float = 0.95, slack_penalty: float = 1e4):
-        self.v_floor = v_floor
-        self.slack_penalty = slack_penalty
-        self.schedule = None       # (n_ev, n_tau) kW
-        self.infeasible = False
-
-    def solve(self, env, price_profile, load_profile) -> bool:
-        evs = env.evs
-        n_ev = len(evs)
-        n_tau = int(env.episode_h * 4)
-        dtau, eta = 0.25, env.eff
-        c_max = env.cfg["reactive_power"]["charger_p_max_kw"]
-
-        conn = np.zeros((n_ev, n_tau), bool)
-        for i, e in enumerate(evs):
-            a, d = int(np.floor(e.arrival_h * 4)), int(np.ceil(e.departure_h * 4))
-            conn[i, max(0, a):min(n_tau, d)] = True
-
-        v0, sens = identify_sensitivities(env)
-        vbase = base_vmin_profile(env, load_profile)
-
-        nv = n_ev * n_tau            # charging rates
-        ns = n_ev                    # energy slack
-        idx = lambda i, t: i * n_tau + t
-        lmp = np.array([price_profile[min(int(t / 4), len(price_profile) - 1)]
-                        for t in range(n_tau)]) / 1000.0  # $/kWh
-
-        c_obj = np.concatenate([np.tile(lmp * dtau, n_ev),
-                                np.full(ns, self.slack_penalty)])
-
-        A_ub, b_ub = [], []
-        # transformer caps: sum_{i in k} c_{i,t} <= P_cap
-        for k in range(env.n_agg):
-            members = [i for i, e in enumerate(evs) if e.aggregator == k]
-            for t in range(n_tau):
-                row = np.zeros(nv + ns)
-                for i in members:
-                    row[idx(i, t)] = 1.0
-                A_ub.append(row); b_ub.append(env.p_cap)
-        # linearized voltage: -sum_k S_k * P_k(t) <= vbase(t) - v_floor
-        for t in range(n_tau):
-            row = np.zeros(nv + ns)
-            for i, e in enumerate(evs):
-                row[idx(i, t)] = -sens[e.aggregator]   # sens<0 -> coeff>0
-            A_ub.append(row); b_ub.append(vbase[t] - self.v_floor)
-        # energy: -eta*dtau*sum_t c_{i,t} - slack_i <= -need_i
-        for i, e in enumerate(evs):
-            row = np.zeros(nv + ns)
-            row[i * n_tau:(i + 1) * n_tau] = -eta * dtau
-            row[nv + i] = -1.0
-            A_ub.append(row); b_ub.append(-e.initial_need_kwh)
-
-        ub = np.where(conn.reshape(-1), c_max, 0.0)
-        bounds = [(0.0, float(u)) for u in ub] + [(0.0, None)] * ns
-
-        res = linprog(c_obj, A_ub=np.array(A_ub), b_ub=np.array(b_ub),
-                      bounds=bounds, method="highs")
+    def plan(self, env) -> dict[int, float]:
+        d = env.interval_h
+        tau = int(round(env.t_h / d))
+        need = env.need()
+        cand = np.flatnonzero((~env.departed) & (need > 1e-6) & (env.dep > env.t_h))
+        if len(cand) == 0:
+            return {}
+        horizon = np.arange(tau, self.n_tau)
+        cols, ub, ev_of, s_of = [], [], [], []
+        for i in cand:
+            for s in horizon:
+                start, end = s * d, (s + 1) * d
+                if env.arr[i] > start + 1e-9 or env.dep[i] <= start + 1e-9:
+                    continue
+                if s == tau and not env.connected[i]:
+                    continue
+                frac = min(1.0, (env.dep[i] - start) / d)
+                cols.append(len(cols)); ub.append(env.p_max * frac)
+                ev_of.append(i); s_of.append(s)
+        nv = len(cols)
+        if nv == 0:
+            return {}
+        ev_of, s_of = np.array(ev_of), np.array(s_of)
+        ev_pos = {int(i): j for j, i in enumerate(cand)}
+        ne = len(cand)
+        lmp = np.array([env.lmp(s * d) for s in s_of]) / 1000.0
+        c = np.concatenate([lmp * d, np.full(ne, SLACK_PENALTY)])
+        rows, cidx, vals, b = [], [], [], []
+        r = 0
+        # energy: -eta d sum_s c - slack <= -need
+        for j, i in enumerate(cand):
+            m = np.flatnonzero(ev_of == i)
+            rows += [r] * (len(m) + 1)
+            cidx += list(m) + [nv + j]
+            vals += [-env.eff * d] * len(m) + [-1.0]
+            b.append(-need[i]); r += 1
+        agg_of = env.agg[ev_of]
+        for s in horizon:
+            at_s = np.flatnonzero(s_of == s)
+            if len(at_s) == 0:
+                continue
+            for k in range(env.n_agg):                       # transformer caps
+                m = at_s[agg_of[at_s] == k]
+                if len(m):
+                    rows += [r] * len(m); cidx += list(m); vals += [1.0] * len(m)
+                    b.append(env.p_cap); r += 1
+            sk = self.sens[s] / 1000.0                       # p.u. per kW
+            for n in range(1, env.net.n_bus):                 # linearised voltage floor
+                coef = -sk[n, agg_of[at_s]]
+                rows += [r] * len(at_s); cidx += list(at_s); vals += list(coef)
+                b.append(self.v0[s, n] - self.v_floor); r += 1
+        a = sparse.csr_matrix((vals, (rows, cidx)), shape=(r, nv + ne))
+        bounds = [(0.0, u) for u in ub] + [(0.0, None)] * ne
+        res = linprog(c, A_ub=a, b_ub=np.array(b), bounds=bounds, method="highs")
+        self.solves += 1
         if not res.success:
-            self.infeasible = True
-            return False
-        slack = res.x[nv:]
-        self.infeasible = bool(slack.sum() > 0.05 * sum(e.initial_need_kwh for e in evs))
-        self.schedule = res.x[:nv].reshape(n_ev, n_tau)
-        return True
+            # c = 0, slack = need is always feasible because the calibrated no-EV
+            # voltage stays above the floor; a failure is a modelling error.
+            raise RuntimeError(f"LP-OPF failed: {res.message}")
+        x = res.x
+        self.slack_kwh = float(x[nv:].sum())
+        now = np.flatnonzero(s_of == tau)
+        return {int(ev_of[j]): float(x[j]) for j in now if x[j] > 1e-6}
 
     def act(self, env):
-        tau = int(env.t_s // env.dispatch_s)
-        env.set_corridor(0.10, 0.14)
+        _flat_corridor(env)
+        plan = self.plan(env)
         for k in range(env.n_agg):
-            evs = env.fleet.connected_by_aggregator(k)
-            rates = np.array([self.schedule[e.idx, tau] if self.schedule is not None
-                              else 0.0 for e in evs] or [0.0])
-            env.set_dispatch(k, rates, price_frac=0.5)
-
-
-def run_milp_episode(env, price_profile, load_profile) -> dict:
-    env.reset(price_profile, load_profile)
-    pol = MILPPolicy()
-    ok = pol.solve(env, price_profile, load_profile)
-    # re-reset: solve() perturbed the network for identification
-    env.reset(price_profile, load_profile)
-    if not ok:
-        m = {k: float("nan") for k in ["daily_cost_usd", "min_voltage_pu",
-             "violation_rate_pct", "service_quality", "q_activation_freq",
-             "curtailed_kwh", "peak_mw"]}
-        m["infeasible"] = True
-        return m
-    n_intervals = int(env.episode_h * 3600 // env.dispatch_s)
-    for _ in range(n_intervals):
-        pol.act(env)
-        env.run_dispatch_interval()
-    m = env.episode_metrics()
-    m["infeasible"] = pol.infeasible
-    return m
+            env.set_rates(k, {i: p for i, p in plan.items() if env.agg[i] == k}, 0.0)

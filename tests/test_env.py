@@ -1,82 +1,169 @@
-"""Day 1 smoke tests: environment physics, Q-controller behavior, deadlock fix,
-projection layer correctness."""
-import sys, time, pathlib
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
-import numpy as np
-import yaml
+"""Regression tests for the v3 environment, data layer and training plumbing.
+Each test pins down one defect found in the v2 code or one modelling claim made
+in the paper."""
+import pathlib
+import sys
 
-from nflev.env.charging_env import ChargingEnv
-from nflev.agents.projection import simplex_scale, bounded_simplex_projection
-from nflev.env.qcontrol import ReactivePowerController
+import numpy as np
+import pytest
+import yaml
+from scipy.optimize import minimize
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-CFG = yaml.safe_load(open(ROOT / "configs/base.yaml"))
-DS = yaml.safe_load(open(ROOT / "configs/dataset/nrel.yaml"))
+sys.path.insert(0, str(ROOT / "src"))
 
-# PJM-like hourly LMP ($/MWh) and IEEE residential load-shape multiplier
-LMP = np.array([28,26,25,25,26,30,45,60,55,50,48,47,46,48,52,60,80,110,120,105,85,60,45,35], float)
-LOAD = np.array([.55,.5,.48,.47,.48,.55,.65,.75,.72,.70,.68,.67,.66,.68,.72,.80,.92,1.0,1.0,.97,.88,.78,.68,.60])
+from nflev.baselines.milp import LPOPF                     # noqa: E402
+from nflev.baselines.simple import PriceAware, TOUTimer, Uncoordinated  # noqa: E402
+from nflev.data.prices import load_prices                   # noqa: E402
+from nflev.data.sources import FILES, ensure_data, _sha256  # noqa: E402
+from nflev.env.allocation import llf_allocate, project      # noqa: E402
+from nflev.env.charging_env import ChargingEnv               # noqa: E402
+from nflev.env.episode import make_episode                   # noqa: E402
+from nflev.env.qcontrol import ReactiveController            # noqa: E402
+from nflev.eval.runner import run_policy_episode             # noqa: E402
 
-
-def make_env(**mods):
-    return ChargingEnv(CFG, "ieee33", DS, n_ev=60, seed=42, scenario_mods=mods)
-
-
-def test_projection():
-    c_max = np.full(5, 11.0)
-    c = simplex_scale(np.array([10, 10, 10, 10, 10.0]), c_max, 30.0)
-    assert abs(c.sum() - 30.0) < 1e-9
-    c2 = bounded_simplex_projection(np.array([15, 2, 9, 9, 9.0]), c_max, 30.0)
-    assert c2.sum() <= 30.0 + 1e-6 and (c2 <= c_max + 1e-9).all() and (c2 >= 0).all()
-    print("[PASS] projection: sum<=P_cap, box bounds hold")
+CFG = yaml.safe_load(open(ROOT / "configs" / "base.yaml"))
 
 
-def test_q_capacity_at_zero_power():
-    q = ReactivePowerController.q_capacity_kvar(np.array([12.0]), np.array([0.0]))
-    assert q[0] > 11.9, "full Q at P=0 (deadlock fix)"
-    q2 = ReactivePowerController.q_capacity_kvar(np.array([12.0]), np.array([11.0]))
-    assert 4.0 < q2[0] < 5.0
-    print(f"[PASS] Q capacity: P=0 -> {q[0]:.2f} kVAR (STATCOM mode), P=11kW -> {q2[0]:.2f} kVAR")
+def spec(n_ev=120, j=0, **scen):
+    return make_episode(CFG, "residential", "test", n_ev, seed=7000 + j, scenario=scen, eval_index=j)
 
 
-def run_episode(env, greedy=True, label=""):
-    env.reset(LMP, LOAD)
-    t0 = time.time()
-    n_intervals = int(env.episode_h * 3600 // env.dispatch_s)
-    for i in range(n_intervals):
-        if env.t_s % env.pricing_s == 0:
-            env.set_corridor(0.08, 0.20)
-        for k in range(env.n_agg):
-            n = len(env.fleet.connected_by_aggregator(k))
-            raw = np.full(max(n, 1), 11.0 if greedy else 4.0)
-            env.set_dispatch(k, raw, price_frac=0.5)
-        env.run_dispatch_interval()
+# ------------------------------------------------------------------ data
+def test_data_checksums():
+    root = ensure_data(verbose=False)
+    for f, h in FILES.items():
+        assert _sha256(root / f) == h
+
+
+def test_price_series_complete_and_deduplicated():
+    s = load_prices()
+    assert s.index.is_unique and s.isna().sum() == 0
+    counts = s.groupby(s.index.year).size()
+    assert counts[2019] == 8760 and counts[2023] == 8760 and counts[2024] == 8784
+
+
+# ------------------------------------------------------- feasibility layer
+def test_projection_is_exact_euclidean():
+    rng = np.random.default_rng(1)
+    for _ in range(20):
+        n = 6
+        raw = rng.uniform(-2, 14, n)
+        cap = rng.uniform(1, 11, n)
+        pc = rng.uniform(5, 40)
+        c = project(raw, cap, pc)
+        assert c.sum() <= pc + 1e-7 and np.all(c >= -1e-9) and np.all(c <= cap + 1e-9)
+        res = minimize(lambda x: ((x - raw) ** 2).sum(), np.zeros(n), bounds=list(zip(np.zeros(n), cap)),
+                       constraints=[{"type": "ineq", "fun": lambda x: pc - x.sum()}], method="SLSQP",
+                       options={"ftol": 1e-12, "maxiter": 500})
+        assert np.allclose(c, res.x, atol=1e-4)
+
+
+def test_llf_guard_and_caps():
+    cap = np.array([11.0, 11.0, 11.0, 5.0])
+    lax = np.array([0.1, 5.0, 0.2, 9.0])
+    rates, _ = llf_allocate(0.0, cap, lax, p_cap=500, interval_h=0.25, guard=True)
+    assert rates[0] == 11.0 and rates[2] == 11.0 and rates[1] == 0.0      # urgent served at u = 0
+    rates, _ = llf_allocate(1.0, cap, lax, p_cap=20, interval_h=0.25, guard=False)
+    assert abs(rates.sum() - 20) < 1e-9 and rates[0] == 11.0              # least laxity first
+
+
+# ---------------------------------------------------------- energy model
+@pytest.mark.parametrize("policy", [Uncoordinated(), TOUTimer(), PriceAware()])
+@pytest.mark.parametrize("q", [False, True])
+def test_energy_conservation(policy, q):
+    env = ChargingEnv(CFG, "ieee33", q_control=q)
+    m = run_policy_episode(env, policy, spec())
+    assert m["energy_delivered_kwh"] <= m["energy_requested_kwh"] + 1e-6
+    assert abs(m["energy_delivered_kwh"] - env.eff * m["energy_drawn_kwh"]) < 1e-6 * m["energy_drawn_kwh"] + 1e-6
+    assert abs(m["energy_requested_kwh"] - m["energy_delivered_kwh"] - m["unmet_kwh"]) < 1e-6 * m["energy_requested_kwh"]
+
+
+def test_full_vehicles_draw_nothing():
+    """v2 defect: chargers kept drawing 11 kW into full batteries."""
+    env = ChargingEnv(CFG, "ieee33", q_control=False)
+    env.reset(spec(60))
+    pol = Uncoordinated()
+    pol.reset(env)
+    while not env.done:
+        pol.act(env)
+        env.run_interval()
+        assert np.all(env.delivered <= env.need0 + 1e-9)
     m = env.episode_metrics()
-    m["wall_s"] = time.time() - t0
-    print(f"[{label}] cost=${m['daily_cost_usd']:.2f} vmin={m['min_voltage_pu']:.4f} "
-          f"viol={m['violation_rate_pct']:.1f}% SQ={m['service_quality']:.3f} "
-          f"Qact={m['q_activation_freq']:.2f} curt={m['curtailed_kwh']:.1f}kWh "
-          f"peak={m['peak_mw']:.2f}MW wall={m['wall_s']:.1f}s")
-    return m
+    assert m["energy_drawn_kwh"] * env.eff <= m["energy_requested_kwh"] + 1e-6
 
 
-def test_uncoordinated_with_q_control():
-    m = run_episode(make_env(), greedy=True, label="S3 greedy + Q-control")
-    assert m["violation_rate_pct"] == 0.0, "Q-control must hold the floor"
-    assert m["min_voltage_pu"] >= 0.95 - 1e-9
+def test_transformer_cap_respected():
+    env = ChargingEnv(CFG, "ieee33", q_control=False)
+    env.reset(spec(300))
+    pol = Uncoordinated()
+    pol.reset(env)
+    while not env.done:
+        pol.act(env)
+        env.run_interval()
+        per_agg = np.bincount(env.agg, weights=env.alloc, minlength=env.n_agg)
+        assert np.all(per_agg <= env.p_cap + 1e-6)
 
 
-def test_deadlock_scenario():
-    """S6: charging forced to zero 19:00-20:00 during peak. v1 model would
-    have zero Q capacity here; v2 must keep supporting voltage."""
-    m = run_episode(make_env(force_zero_charging_window=[19, 20]),
-                    greedy=True, label="S6 deadlock window")
-    assert m["violation_rate_pct"] == 0.0, "S_rated-based Q must survive zero charging"
+# -------------------------------------------------------------- episodes
+def test_episodes_are_reproducible_and_paired():
+    a, b = spec(120, 3), spec(120, 3)
+    assert a.day == b.day and np.array_equal(a.load_actual, b.load_actual)
+    assert [e.need_kwh for e in a.evs] == [e.need_kwh for e in b.evs]
+    assert len({spec(30, j).day for j in range(50)}) == 50   # 50 distinct held-out days
 
 
-if __name__ == "__main__":
-    test_projection()
-    test_q_capacity_at_zero_power()
-    test_uncoordinated_with_q_control()
-    test_deadlock_scenario()
-    print("\nAll Day-1 smoke tests passed.")
+def test_departures_inside_horizon():
+    sp = spec(300)
+    assert all(e.departure_h <= sp.horizon_h - 0.25 + 1e-9 for e in sp.evs)
+    assert all(e.need_kwh <= (e.departure_h - e.arrival_h) * 11.0 * 0.95 + 1e-9 for e in sp.evs)
+
+
+# -------------------------------------------------------------- Level 3
+def test_reactive_capacity_from_inverter_rating():
+    q = ReactiveController(CFG, 12.0)
+    assert abs(q.capacity(np.array([0.0])) - 12.0) < 1e-12             # full capacity at P = 0
+    assert abs(q.capacity(np.array([11.0])) - np.sqrt(144 - 121)) < 1e-12
+
+
+def test_level3_holds_floor_where_capacity_suffices():
+    sp = spec(240, 0)
+    off = run_policy_episode(ChargingEnv(CFG, "ieee33", q_control=False), TOUTimer(), sp)
+    on = run_policy_episode(ChargingEnv(CFG, "ieee33", q_control=True), TOUTimer(), sp)
+    assert off["violation_rate_pct"] > 0 and on["violation_rate_pct"] == 0.0
+
+
+def test_lp_opf_runs_on_the_episode_fleet():
+    """v2 defect: the LP was solved for one random fleet and replayed on another."""
+    m = run_policy_episode(ChargingEnv(CFG, "ieee33", q_control=False), LPOPF(), spec(60, 1))
+    assert m["service_quality"] > 0.97
+
+
+# ------------------------------------------------- DDPG reward alignment
+def test_ddpg_transitions_are_aligned(monkeypatch, tmp_path):
+    """v2 defect: the reward of interval i was stored with the action of i-1."""
+    import nflev.training.trainer as T
+    stored = []
+    orig_obs = ChargingEnv.l2_obs
+
+    def tagged_obs(self, k):
+        o = orig_obs(self, k)
+        o[0] = self.t_step // self.steps_per_interval          # interval index in slot 0
+        return o
+
+    def fake_rewards(cfg, env, info):                          # reward = index of the interval just run
+        return np.full(env.n_agg, float(env.t_step // env.steps_per_interval - 1))
+
+    monkeypatch.setattr(ChargingEnv, "l2_obs", tagged_obs)
+    monkeypatch.setattr(T, "aggregator_rewards", fake_rewards)
+    orig_store = T.DDPGAgent.store
+    monkeypatch.setattr(T.DDPGAgent, "store",
+                        lambda self, s, a, r, s2, d: (stored.append((s[0], r, s2[0], d)),
+                                                      orig_store(self, s, a, r, s2, d)))
+    cfg = yaml.safe_load(open(ROOT / "configs" / "base.yaml"))
+    cfg["curriculum"]["stages"] = [{"n_ev": 20}]
+    T.train_nested(cfg, "residential", "ieee33", 0, "none", tmp_path, episodes=1, log_every=99)
+    assert stored
+    for s, r, s2, d in stored:
+        assert r == s                        # reward produced by the action taken in state s
+        assert s2 == s + 1                   # next state is the following interval

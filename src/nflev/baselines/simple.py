@@ -1,58 +1,98 @@
-"""Non-learning baselines: uncoordinated charging and static TOU pricing.
+"""Rule-based baselines. All of them dispatch per-vehicle rates through the same
+feasible projection as every other method, and can be run with or without the
+Level-3 reactive controller (environment flag).
 
-Both run through the SAME environment (full AC power flow, Fishbein behavior).
-Q-control can be enabled or disabled via env scenario_mods["disable_q_control"]
-so each baseline is evaluated in its native form (no V2G support), matching v1.
+Uncoordinated  every vehicle charges at full rate from arrival until done.
+TOU timer      three-tier time-of-use tariff; vehicles charge at full rate in
+               the off-peak window (23:00-07:00) and earlier only when their
+               laxity is exhausted (the usual behaviour of timer charging).
+Price-aware    each vehicle charges in the cheapest dispatch intervals that
+               still cover its need before departure. Prices are known only
+               `price_lookahead_h` ahead (the window the learned agents observe);
+               later intervals are valued at the mean known price (naive
+               forecast). Re-planned every interval, so declined or curtailed
+               energy is recovered later.
 """
 from __future__ import annotations
+
 import numpy as np
 
+from ..env.allocation import laxity_h
 
-class UncoordinatedPolicy:
-    """Every connected EV charges at full rate immediately; flat retail price."""
+
+class Policy:
+    name = "policy"
+    sets_corridor = False
+
+    def reset(self, env) -> None:
+        pass
+
+    def act(self, env) -> None:
+        raise NotImplementedError
+
+
+def _flat_corridor(env):
+    env.set_corridor(env.flat_price, env.flat_price + env.min_width)
+
+
+class Uncoordinated(Policy):
     name = "uncoordinated"
 
-    def __init__(self, retail_price: float = 0.12):
-        self.retail = retail_price
-
     def act(self, env):
-        env.set_corridor(self.retail, self.retail + 0.02)
+        _flat_corridor(env)
         for k in range(env.n_agg):
-            n = len(env.fleet.connected_by_aggregator(k))
-            env.set_dispatch(k, np.full(max(n, 1), 999.0), price_frac=0.0)
-            # 999 -> clipped to c_max then projected onto transformer cap
+            mem = np.flatnonzero(env.connected & (env.agg == k))
+            env.set_rates(k, {int(i): env.p_max for i in mem}, 0.0)
 
 
-class TOUPolicy:
-    """Static three-tier time-of-use tariff (0.08/0.12/0.20 $/kWh).
-    EVs charge at full rate whenever the Fishbein layer accepts the price."""
+class TOUTimer(Policy):
     name = "tou"
+    PEAK, MID, OFF = 0.30, 0.20, 0.12
+    PEAK_H, OFF_START, OFF_END = (17, 21), 23, 7
 
-    def __init__(self, off=0.08, mid=0.12, peak=0.20,
-                 peak_hours=(17, 21), mid_hours=(7, 17)):
-        self.off, self.mid, self.peak = off, mid, peak
-        self.ph, self.mh = peak_hours, mid_hours
-
-    def price(self, t_h: float) -> float:
-        h = t_h % 24
-        if self.ph[0] <= h < self.ph[1]:
-            return self.peak
-        if self.mh[0] <= h < self.mh[1]:
-            return self.mid
-        return self.off
+    def price(self, h: float) -> float:
+        if self.PEAK_H[0] <= h < self.PEAK_H[1]:
+            return self.PEAK
+        if h >= self.OFF_START or h < self.OFF_END:
+            return self.OFF
+        return self.MID
 
     def act(self, env):
-        p = self.price(env.t_s / 3600.0)
-        env.set_corridor(p, p + 0.02)
+        h = env.wall_hour()
+        p = self.price(h)
+        env.set_corridor(p, p + env.min_width)
+        off = h >= self.OFF_START or h < self.OFF_END
+        need = env.need()
+        lax = laxity_h(env.hours_left(), need, env.p_max, env.eff)
         for k in range(env.n_agg):
-            n = len(env.fleet.connected_by_aggregator(k))
-            env.set_dispatch(k, np.full(max(n, 1), 999.0), price_frac=0.0)
+            mem = np.flatnonzero(env.connected & (env.agg == k))
+            env.set_rates(k, {int(i): env.p_max for i in mem
+                              if off or lax[i] <= env.interval_h}, 0.0)
 
 
-def run_baseline_episode(env, policy, price_profile, load_profile) -> dict:
-    env.reset(price_profile, load_profile)
-    n_intervals = int(env.episode_h * 3600 // env.dispatch_s)
-    for _ in range(n_intervals):
-        policy.act(env)
-        env.run_dispatch_interval()
-    return env.episode_metrics()
+class PriceAware(Policy):
+    name = "price_aware"
+
+    def act(self, env):
+        _flat_corridor(env)
+        tau = int(round(env.t_h / env.interval_h))
+        n_tau = int(round(env.spec.horizon_h / env.interval_h))
+        known = tau + int(round(env.look / env.interval_h))   # first interval with unknown price
+        slot_kwh = env.p_max * env.eff * env.interval_h
+        need = env.need()
+        for k in range(env.n_agg):
+            rates = {}
+            for i in np.flatnonzero(env.connected & (env.agg == k)):
+                last = min(n_tau, int(np.floor(env.dep[i] / env.interval_h + 1e-9)))
+                slots = np.arange(tau, max(tau + 1, last))
+                k_need = int(np.ceil(need[i] / slot_kwh - 1e-9))
+                if k_need <= 0:
+                    continue
+                lmps = np.array([env.lmp(s * env.interval_h) for s in slots])
+                unknown = slots >= known
+                if unknown.any():          # naive forecast: mean of the known window
+                    lmps[unknown] = lmps[~unknown].mean()
+                chosen = slots[np.argsort(lmps, kind="stable")[:k_need]]
+                if tau in chosen:
+                    rates[int(i)] = env.p_max
+            env.set_rates(k, rates, 0.0)
