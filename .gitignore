@@ -24,3 +24,7 @@ paper/*.blg
 paper/*.fls
 paper/*.fdb_latexmk
 paper/*.synctex.gz
+# training-time files (resumable checkpoints and learning-curve snapshots)
+artifacts/runs/*/checkpoint.pt
+artifacts/runs/*/checkpoint.tmp
+artifacts/runs/*/snapshot_ep*.pt
