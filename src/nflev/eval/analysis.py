@@ -223,7 +223,8 @@ ABL_LABELS = {"main": "Complete framework", "abl_no_prior": "No planning prior",
               "abl_no_l1": "No Level 1", "abl_flat_timescale": "Single timescale",
               "abl_no_behavior": "No behaviour model", "abl_no_l3": "No Level 3 (trained)",
               "ablation": "L3 removed at test", "abl_no_curriculum": "No curriculum",
-              "abl_no_guard": "No deadline guard", "abl_proportional": "Proportional allocation"}
+              "abl_no_guard": "No deadline guard", "abl_proportional": "Proportional allocation",
+              "abl_llf": "Least-laxity-first allocation"}
 
 
 def table_ablation(s, scenarios, path):

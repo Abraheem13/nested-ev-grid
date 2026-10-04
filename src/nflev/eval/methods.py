@@ -81,6 +81,14 @@ def price_offset(checkpoint: pathlib.Path | None) -> float:
     return float(json.loads(f.read_text())["price_offset"]) if f is not None and f.exists() else 0.0
 
 
+def _env_cfg(cfg: dict, ctl) -> dict:
+    """Environment config of a nested policy: its ablation, and the allocation
+    mode it was trained with."""
+    c = ablated_cfg(cfg, ctl.ablation)
+    c["level2"]["disaggregation"] = ctl.cfg["level2"].get("disaggregation", c["level2"]["disaggregation"])
+    return c
+
+
 def build(method: str, cfg: dict, n_agg: int, checkpoint: pathlib.Path | None = None,
           calibrated: bool = True):
     """Returns (policy, q_control, cfg_for_env). Learned policies carry their
@@ -92,11 +100,11 @@ def build(method: str, cfg: dict, n_agg: int, checkpoint: pathlib.Path | None = 
         ctl = load_nested(checkpoint, cfg)
         ctl.price_offset = price_offset(checkpoint) if calibrated else 0.0
         wrap = FlatPrice if base == "nested-flatprice" else PlanDispatch
-        return wrap(ctl), True, ablated_cfg(cfg, ctl.ablation)
+        return wrap(ctl), True, _env_cfg(cfg, ctl)
     if base == "nested":
         ctl = load_nested(checkpoint, cfg)
         ctl.price_offset = price_offset(checkpoint) if calibrated else 0.0
-        return ctl, l3, ablated_cfg(cfg, ctl.ablation)
+        return ctl, l3, _env_cfg(cfg, ctl)
     sd = torch.load(checkpoint, map_location="cpu", weights_only=False)["model"]
     if base == "flat_ddpg":
         ctl = FlatDDPG(cfg, n_agg, 0)
