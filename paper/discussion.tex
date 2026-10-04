@@ -23,7 +23,7 @@ well.
 Level~3b is corrective control on the simulated quasi-static state, not an a
 priori guarantee. It restores the floor whenever the reactive headroom of the
 plugged-in chargers suffices, and otherwise sheds EV power until the floor is
-met or eight power flows have been run. Two consequences follow. First, the
+met or the fallback has run its course (Section~\ref{sec:method}). Two consequences follow. First, the
 inverter apparent-power rating is the design variable that buys voltage
 margin: Table~\ref{tab:sensitivity} reports the effect of $S_i$, and S7 shows
 the behaviour when the rating is halved. Second, the correction acts at the

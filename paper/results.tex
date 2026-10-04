@@ -17,8 +17,9 @@ Table~\ref{tab:main} compares all methods at S3. Uncoordinated charging costs
 \GUncoordinatedSThreeViol\% of the \SI{60}{s} steps.% claim: unc_violates_main
 \ Attaching Level~3 removes every violation of the rule-based methods at
 S1, S2, S3 and S5% claim: l3_zero_viol_rules_nominal
-\ without changing their cost, because the correction uses reactive power and
-curtails only when the headroom is exhausted. The perfect-foresight LP-OPF is
+\ and changes their cost by at most \GLThreeCostChangeMax\%,% claim: l3_negligible_cost_main
+\ because the correction uses reactive power and curtails only when the
+headroom is exhausted. The perfect-foresight LP-OPF is
 the cheapest method (\GLpOpfLThreeSThreeCost~\euro).% claim: lp_cheapest_S3
 \ Among the methods that do not see the future, the price-aware heuristic is
 cheapest (\GPriceAwareLThreeSThreeCost~\euro).% claim: pa_cheapest_nonoracle_S3
@@ -43,7 +44,8 @@ cheapest (\GPriceAwareLThreeSThreeCost~\euro).% claim: pa_cheapest_nonoracle_S3
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]{generated/fig_scenarios.pdf}
-\caption{Cost per delivered kWh, service quality and violation rate across S1--S5 (means with 95\% bootstrap confidence intervals over days).}
+\caption{(a) Daily energy cost relative to the perfect-foresight LP-OPF on the same day, and (b) violation rate of the controllers without Level~3, across S1, S2, S3 and S5 (means with 95\% bootstrap confidence intervals over days). The nested controller and every ``+L3'' controller have no violations at these penetration levels.}% claim: nested_zero_viol_nominal
+% claim: l3_zero_viol_rules_nominal
 \label{fig:scenarios}
 \end{figure*}
 
@@ -59,8 +61,8 @@ every ``+L3'' method record no violations.% claim: nested_zero_viol_nominal
 \ S4 is different: with a \SI{15}{\percent} base-load forecast error, the
 household load alone breaks the floor on \GNoevViolDaysSFour{} of the
 \GEvalDays{} days even when no vehicle charges. Level~3 removes most of these
-violations with the reactive headroom of idle chargers ($\Qmax_i=S_i$ at
-$P_i=0$); the remainder, at most \GViolNestedMaxSFour\% of the steps for the
+violations with the reactive headroom of idle chargers, which offer their full
+rating at zero charging power; the remainder, at most \GViolNestedMaxSFour\% of the steps for the
 nested controller, occurs only on those days.% claim: s4_l3_violations_only_base_load_days
 \ The ordering of costs is the same at every penetration level: the nested
 controller saves \GSavingNestedUncMin--\GSavingNestedUncMax\% relative to
@@ -103,8 +105,10 @@ cheaper of the pair.
 Table~\ref{tab:stress} probes Level~3 beyond nominal conditions. In S6 no
 charging is allowed for an hour in the evening peak; because reactive headroom
 is bounded by the inverter rating rather than by charging power, every
-controller with Level~3 keeps the floor. S7 exceeds what halved inverters can
-correct, and the methods separate. The nested controller curtails
+controller with Level~3 keeps the floor.% claim: s6_l3_zero_viol
+\ S7 exceeds what halved inverters can correct: even with Level~3 some
+violations remain,% claim: s7_l3_violations_remain
+\ and the methods separate. The nested controller curtails
 \GReductionCurtNestedPaSSeven\% less energy than the price-aware heuristic,% claim: nested_less_curtailment_than_pa_S7
 \ leaves \GReductionUnmetNestedPaSSeven\% less energy undelivered% claim: nested_less_unmet_than_pa_S7
 \ and has \GReductionViolNestedPaSSeven\% fewer violations;% claim: nested_fewer_viol_than_pa_S7
@@ -140,6 +144,11 @@ curtails \GDecompCurtVsPlanNestedFlatpriceSSeven\% less energy than the
 plan% claim: decomp_nested_flatprice_less_curt_than_plan_S7
 \ and leaves \GDecompUnmetVsPlanNestedFlatpriceSSeven\% less energy
 undelivered.% claim: decomp_nested_flatprice_less_unmet_than_plan_S7
+\ Part of the advantage over the price-aware heuristic under stress needs no
+learning at all: the plan executed least-laxity-first already leaves
+\GReductionUnmetPlanPaSSeven\% less energy undelivered than the per-vehicle
+heuristic in S7,% claim: plan_less_unmet_than_pa_S7
+\ because urgent vehicles are served first when Level~3 curtails.
 
 \begin{table}[t]
 \centering
@@ -152,6 +161,31 @@ undelivered.% claim: decomp_nested_flatprice_less_unmet_than_plan_S7
 
 \subsection{Ablations}
 \label{sec:res-abl}
+Table~\ref{tab:ablation} removes one component at a time (three training
+seeds each). The planning prior matters most: learning the dispatch from
+scratch raises the cost by \GAblDeltaCostAbsAblNoPriorSThree\% at S3 and by
+\GAblDeltaCostAbsAblNoPriorSFive\% at S5.% claim: abl_abl_no_prior_costlier_S3
+% claim: abl_abl_no_prior_costlier_S5
+\ Proportional instead of least-laxity-first allocation raises the S3 cost by
+\GAblDeltaCostAbsAblProportionalSThree\%,% claim: abl_abl_proportional_costlier_S3
+\ a single timescale (Level~1 acting every \SI{15}{min}) by
+\GAblDeltaCostAbsAblFlatTimescaleSThree\%,% claim: abl_abl_flat_timescale_costlier_S3
+\ and removing the deadline guard by \GAblDeltaCostAbsAblNoGuardSThree\%.% claim: abl_abl_no_guard_costlier_S3
+\ Two components do not pay for themselves on cost: with a fixed neutral
+corridor instead of Level~1 the S3 cost is \GAblDeltaCostAbsAblNoLOneSThree\%
+lower,% claim: abl_abl_no_l1_cheaper_S3
+\ and without the curriculum it is \GAblDeltaCostAbsAblNoCurriculumSThree\%
+lower.% claim: abl_abl_no_curriculum_cheaper_S3
+\ We therefore do not attribute a cost benefit to the hourly price level or to
+the curriculum in this setting. Without the behavioural model every driver
+accepts, which raises service quality% claim: abl_no_behavior_higher_sq_S3
+\ and lowers the cost by \GAblDeltaCostAbsAblNoBehaviorSThree\%:% claim: abl_abl_no_behavior_cheaper_S3
+\ price response constrains the controller rather than being exploited by it.
+Finally, a policy trained without Level~3 violates the floor in
+\GAblNoLThreeNestedNoLThreeSThreeResidentialIeeeThreeThreeTestViol\% of the
+steps,% claim: abl_no_l3_violates_S3
+\ and removing Level~3 from the trained controller at test time gives
+\GAblationNestedNoLThreeSThreeResidentialIeeeThreeThreeTestViol\%.% claim: ablation_violates_S3
 
 \begin{table}[t]
 \centering
@@ -164,6 +198,18 @@ undelivered.% claim: decomp_nested_flatprice_less_unmet_than_plan_S7
 
 \subsection{Generalization}
 \label{sec:res-gen}
+Table~\ref{tab:general} repeats S3 on the 69-bus feeder, on recorded ACN-Data
+sessions from two workplace sites, and under the 2019 price regime (the 2019
+experiment reuses the policies trained on 2023 prices). The ordering of
+Table~\ref{tab:main} holds in every setting: the nested controller is
+\GGenSavingMin--\GGenSavingMax\% cheaper than uncoordinated charging and
+\GGenGapMin--\GGenGapMax\% more expensive than the price-aware
+heuristic,% claim: general_nested_between_pa_and_unc
+\ with no violations.% claim: general_nested_zero_viol
+\ Workplace sessions are short and often request more than the dwell allows
+at the observed acceptance, so every method delivers a smaller share of the
+requested energy at Caltech (nested \GGeneralNestedSThreeAcnCaltechIeeeThreeThreeTestSq,
+heuristic \GGenSqPaThreeThreeBusACNCaltech).
 
 \begin{table}[t]
 \centering
@@ -176,21 +222,19 @@ undelivered.% claim: decomp_nested_flatprice_less_unmet_than_plan_S7
 
 \subsection{Level-3 parameters}
 \label{sec:res-sens}
+Table~\ref{tab:sensitivity} varies the correction margin $\delta$ and the
+inverter rating $S_i$. No setting causes violations% claim: sens_zero_viol
+\ or changes the cost by more than \GSensCostRange\%.% claim: sens_cost_insensitive
+\ A larger margin activates the correction more often,% claim: sens_larger_margin_more_activation
+\ and a smaller rating shifts the correction from reactive power to
+curtailment.% claim: sens_smaller_rating_more_curtailment
 
-\begin{figure*}[t]
-\centering
-\includegraphics[width=\textwidth]{generated/fig_training.pdf}
-\caption{Training curves (rolling mean over 25 episodes, averaged over seeds; exploration noise active).}
-\label{fig:training}
-\end{figure*}
-
-\begin{table}[t]
-\centering
-\caption{Training cost on one CPU core per run.}
-\label{tab:compute}
-\footnotesize
-\input{generated/tab_compute.tex}
-\end{table}
 
 \subsection{Training and computation}
 \label{sec:res-comp}
+Training one nested policy takes about \GTrainHoursNested~h on a single CPU
+core; the constrained-RL baselines are faster because they update once per day
+rather than every interval. Training curves and per-method training times are
+generated with the other results in the code repository. The tariff
+calibration of Section~\ref{sec:method} moved the learned prices by at most
+\GCalibOffsetAbsmax~\euro/kWh.
