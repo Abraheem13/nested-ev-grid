@@ -22,7 +22,7 @@ citation did not support the sentence it was attached to.
 | aljabri2026 | **REMOVED** | No record found for "Hierarchical deep reinforcement learning and model predictive control for voltage-aware EV charging coordination…", IEEE Access 14, 2026. |
 | clement2010 | OK | IEEE TPWRS 25(1):371–380, 2010, doi:10.1109/TPWRS.2009.2036481. |
 | ortegavazquez2014 | OK | IET GTD 8(6):1007–1016, 2014. |
-| orfanoudakis2025 | FIXED | Venue is *Communications Engineering* (not "Nat. Commun. Eng."), 2025, doi:10.1038/s44172-025-00457-8; authors Orfanoudakis, Robu, Salazar, Palensky, Vergara. |
+| orfanoudakis2025 | FIXED | Venue is *Communications Engineering* (not "Nat. Commun. Eng."), vol. 4, Art. no. 118, 2025, doi:10.1038/s44172-025-00457-8; authors Orfanoudakis, Robu, Salazar, Palensky, Vergara. Article number added in the second check. |
 | wang2023twostage (EV2Gym) | FIXED (key) | Orfanoudakis et al., IEEE T-ITS 26(2):2410–2421, 2025, doi:10.1109/TITS.2024.3510945. Key renamed `orfanoudakis2025ev2gym`. |
 | mohsenian2010 | OK | IEEE TSG 1(3):320–331, 2010. |
 | ma2013 | OK | IEEE TCST 21(1):67–78, 2013. |
@@ -40,15 +40,15 @@ citation did not support the sentence it was attached to.
 | saner2022 | OK | IEEE TSG 13(3):2218–2233, 2022. |
 | zhang2021p2p | **REMOVED** | No record found for "Distributed hierarchical coordination of networked charging stations based on peer-to-peer trading and EV charging flexibility quantification", IEEE TPWRS 37(4), 2022. |
 | ye2022local | OK | Ye, Papadaskalopoulos, Yuan, Tang, Strbac, IEEE TSG 14(2), 2023. |
-| pateria2021 | OK | ACM CSUR 54(5):1–35, 2021, doi:10.1145/3453160. |
+| pateria2021 | FIXED | ACM CSUR 54(5), Art. no. 109 (35 pp.), doi:10.1145/3453160. Year 2021 as in DBLP (journals/csur/PateriaSTQ21) and the article's own reference line (online 5 Jun. 2021); the printed issue is dated 2022. Article number added in the second check. |
 | achiam2017 | OK | ICML 2017, PMLR 70:22–31. |
 | su2025review | OK | Proc. IEEE 113(3):213–255, 2025. |
 | wang2020voltvar | OK | IEEE TSG 11(4):3008–3018, 2020. |
 | kou2020 | OK | Applied Energy 264, 114772, 2020, doi:10.1016/j.apenergy.2020.114772. |
 | gao2022modelaug | OK | Applied Energy 313, 118762, 2022. |
-| shi2022stability | OK | ACC 2022 (Shi, Qu, Low, Anandkumar, Wierman). |
+| shi2022stability | FIXED | Y. Shi, G. Qu, S. Low, A. Anandkumar, A. Wierman, ACC 2022, pp. 2715–2721, doi:10.23919/ACC53348.2022.9867476. Pages added in the second check. |
 | wang2024safemarl | FIXED | Authors are Y. Qu, J. Ma, F. Wu (not "Y. Wang et al."); IJCAI 2024, pp. 184–192, doi:10.24963/ijcai.2024/21. |
-| yu2024safereview | OK | P. Yu, Z. Wang, H. Zhang, Y. Song, arXiv:2407.00681. |
+| yu2024safereview | FIXED | Now cites the peer-reviewed version: P. Yu, H. Zhang, Y. Song, Z. Wang, H. Dong, L. Ji, *Renew. Sustain. Energy Rev.* 223, Art. no. 116022, 2025, doi:10.1016/j.rser.2025.116022 (RePEc rensus/v223y2025ics1364032125006951; preprint arXiv:2407.00681 had four authors). |
 | hu2022voltage | OK | D. Hu, Z. Ye, Y. Gao, Z. Ye, Y. Peng, N. Yu, IEEE TSG 13(6):4873–4886, 2022. |
 | cao2024pignn | OK | IEEE TSG 15(1):233–246, 2024. |
 | gao2021consensus | OK | IEEE TSG 12(4):3594–3604, 2021. |
@@ -78,7 +78,7 @@ citation did not support the sentence it was attached to.
 | hirth2018 | OK | ENTSO-E Transparency Platform review, Applied Energy 225:1054–1067, 2018, doi:10.1016/j.apenergy.2018.04.048. |
 | pecanstreet | OK | Pecan Street Inc., Dataport (attribution required). |
 | yeh2023sustaingym | OK | SustainGym, NeurIPS 2023 Datasets and Benchmarks (Yeh et al.). |
-| xu2016priority | OK | Y. Xu, F. Pan, L. Tong, "Dynamic scheduling for charging electric vehicles: A priority rule," IEEE TAC 61(12), 2016 (least-laxity-first principle; also arXiv:1602.00372). Page numbers could not be confirmed and are omitted. |
+| xu2016priority | OK | Y. Xu, F. Pan, L. Tong, "Dynamic scheduling for charging electric vehicles: A priority rule," IEEE TAC 61(12), pp. 4094–4099, Dec. 2016 (least-laxity-first principle; also arXiv:1602.00372; IEEE Xplore document 7431973). Pages added in the second check. |
 | huangfu2018 | OK | HiGHS, Math. Prog. Comp. 10(1):119–142, 2018, doi:10.1007/s12532-017-0130-5. |
 | gupta2017 | OK | Gupta, Egorov, Kochenderfer, ALA workshop at AAMAS 2017 (parameter sharing). |
 | silver2018residual | OK | T. Silver, K. Allen, J. Tenenbaum, L. Kaelbling, "Residual policy learning," arXiv:1812.06298, 2018. |
@@ -97,6 +97,12 @@ citation did not support the sentence it was attached to.
   dasilva2020 (Da Silva, Nishida, Roijers, Costa), yeh2023sustaingym (12
   authors, NeurIPS 2023 Datasets and Benchmarks), gupta2017 (LNCS 10642,
   pp. 66–83).
-* Page numbers that could not be confirmed were omitted rather than guessed
-  (xu2016priority, shi2022stability, orfanoudakis2025).
+* Second, independent check (all 58 entries re-searched; direct database APIs
+  were blocked by the network policy, so records were confirmed through search
+  results quoting IEEE Xplore, ScienceDirect, ACM DL, Springer, PMLR, IJCAI,
+  NeurIPS and author pages): no entry was found wrong; the page and article
+  numbers of xu2016priority, shi2022stability, orfanoudakis2025 and
+  pateria2021 were added, and yu2024safereview now cites its journal version.
+* `pecanstreet` is an online resource without an access date: the data were
+  obtained through the EV2Gym distribution, not downloaded from Dataport.
 * `scripts/check_paper.py` fails if a cited key is not marked OK or FIXED above.

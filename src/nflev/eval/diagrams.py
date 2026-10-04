@@ -134,7 +134,7 @@ def fig_architecture(out: pathlib.Path) -> None:
     _arrow(ax, (8.25, rows["l3"] + 0.4), (8.65, 1.3), "#e69f00")
     _arrow(ax, (9.5, 3.35), (9.5, 3.85), "#c00000", style="-")
     _arrow(ax, (9.5, 3.85), (5.8, 3.85), "#c00000", ls="--")
-    ax.text(7.4, 3.95, "measured voltages, cost, curtailment, acceptance", fontsize=fs, color="#c00000", ha="center")
+    ax.text(7.65, 3.95, "voltages, cost, curtailment, acceptance", fontsize=fs, color="#c00000", ha="center")
     ax.text(0.05, 0.08, "blue: set points (top-down)     orange: reactive set points     red dashed: measurements (bottom-up)",
             fontsize=fs)
     fig.savefig(out / "fig_architecture.pdf", bbox_inches="tight")

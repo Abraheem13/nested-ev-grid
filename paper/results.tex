@@ -35,7 +35,7 @@ cheapest (\GPriceAwareLThreeSThreeCost~\euro).% claim: pa_cheapest_nonoracle_S3
 
 \begin{table*}[t]
 \centering
-\caption{Daily energy cost (\euro) and violation rate (\%) across penetration levels S1--S5 (S4: S3 with \SI{15}{\percent} load-forecast error).}
+\caption{Daily energy cost (\euro) and violation rate (\%) across penetration levels S1--S5 (S4: S3 with 15\% load-forecast error).}
 \label{tab:scenarios}
 \footnotesize
 \input{generated/tab_scenarios.tex}
@@ -58,14 +58,13 @@ grow with penetration, up to \GViolUncMax\% and \GViolTouMax\%.% claim: tou_viol
 every ``+L3'' method record no violations.% claim: nested_zero_viol_nominal
 % claim: l3_zero_viol_rules_nominal
 % claim: l3_zero_viol_learned_nominal
-\ S4 is different: with a \SI{15}{\percent} base-load forecast error, the
+\ S4 is different: with a 15\% base-load forecast error, the
 household load alone breaks the floor on \GNoevViolDaysSFour{} of the
 \GEvalDays{} days even when no vehicle charges. Level~3 removes most of these
 violations with the reactive headroom of idle chargers, which offer their full
 rating at zero charging power; the remainder, at most \GViolNestedMaxSFour\% of the steps for the
 nested controller, occurs only on those days.% claim: s4_l3_violations_only_base_load_days
-\ The ordering of costs is the same at every penetration level: the nested
-controller saves \GSavingNestedUncMin--\GSavingNestedUncMax\% relative to
+\ At every penetration level the nested controller saves \GSavingNestedUncMin--\GSavingNestedUncMax\% relative to
 uncoordinated charging, costs \GGapNestedPaMin--\GGapNestedPaMax\% more than the
 price-aware heuristic, and stays below every learned baseline by at least
 \GSavingNestedBestLearnedMin\%.% claim: nested_cheapest_learned_main
@@ -200,8 +199,8 @@ steps,% claim: abl_no_l3_violates_S3
 \label{sec:res-gen}
 Table~\ref{tab:general} repeats S3 on the 69-bus feeder, on recorded ACN-Data
 sessions from two workplace sites, and under the 2019 price regime (the 2019
-experiment reuses the policies trained on 2023 prices). The ordering of
-Table~\ref{tab:main} holds in every setting: the nested controller is
+experiment reuses the policies trained on 2023 prices). In every setting the
+nested controller is
 \GGenSavingMin--\GGenSavingMax\% cheaper than uncoordinated charging and
 \GGenGapMin--\GGenGapMax\% more expensive than the price-aware
 heuristic,% claim: general_nested_between_pa_and_unc
