@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One-click reproduction of every number, table and figure in the paper.
 
-    python reproduce.py                 # everything (data -> tests -> train -> calibrate -> eval -> paper)
+    python reproduce.py                 # everything (data -> tests -> model selection -> train -> calibrate -> eval -> paper)
     python reproduce.py --jobs 8        # parallel workers (default: CPU count)
     python reproduce.py --from-results  # only regenerate tables/figures/numbers from artifacts/
     python reproduce.py --quick         # smoke run: 1 seed, 30 training episodes, 3 eval days
@@ -236,6 +236,9 @@ def main():
         import yaml
         from nflev.env.calibration import write_report
         write_report(yaml.safe_load(open(ROOT / "configs" / "base.yaml")), ART / "calibration.json")
+        if not a.quick:              # model selection on held-out 2023 days (TUNING.md); resumable
+            print("== model selection (scripts/tune.py)", flush=True)
+            subprocess.run([PY, "scripts/tune.py", "--jobs", str(a.jobs)], cwd=ROOT, check=True)
         run_all(train_jobs(seeds, tr_eps), a.jobs, a.force, "train")
         run_all(calib_jobs(seeds, tr_eps), a.jobs, a.force, "calibrate tariffs")
         run_all(eval_jobs(seeds, ev_eps), a.jobs, a.force, "evaluate")

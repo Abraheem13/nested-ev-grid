@@ -41,3 +41,25 @@ two candidates are within 0.2 % of each other, the one listed first wins.
 selected values are then written into `configs/base.yaml`, and the full
 campaign (`reproduce.py`) is re-run, with five training seeds for the main
 comparison.
+
+## Result (run after the protocol above was committed)
+Validation means over the two seeds and 30 days (`artifacts/tuning/summary.csv`):
+
+| id | S3 cost | S3 unmet | S7 cost | S7 unmet | S7 curtailed | J |
+|---|---|---|---|---|---|---|
+| A | 722.8 | 24.0 | 1109.9 | 35.4 | 45.2 | **1974.1** |
+| B | 719.8 | 33.3 | 1107.7 | 56.4 | 59.7 | 2036.7 |
+| C | 713.6 | 29.8 | 1097.9 | 49.4 | 95.4 | 2017.5 |
+| D | 716.9 | 45.4 | 1101.8 | 71.7 | 124.0 | 2114.8 |
+
+No candidate had an S3 validation violation. **A (least-laxity-first, no residual
+penalty) has the lowest J and is retained**: plan-priority allocation lowers
+the S3 energy cost by up to 1.3 % but leaves 24-89 % more energy undelivered at
+S3 and 39-103 % more at S7. Observation (not used for selection): the
+calibrated retail price of B-D on the validation days was 0.207-0.214
+EUR/kWh against 0.199 for A, which lowers acceptance and contributes to their
+higher unmet energy.
+
+Because A is the existing configuration, the final policies are those of the
+main campaign, trained on all 2023 days (`data.val_days = 0`); seeds 3 and 4
+were added to the main comparison.

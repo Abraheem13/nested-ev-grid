@@ -1,0 +1,12 @@
+{
+  "method": "nested",
+  "fleet": "residential",
+  "network": "ieee33",
+  "seed": 100,
+  "ablation": "none",
+  "episodes": null,
+  "config": "/home/user/nested-ev-grid/artifacts/tuning/C/config.yaml",
+  "out": "/home/user/nested-ev-grid/artifacts/tuning/C/s100",
+  "final_stage": 5,
+  "wall_s": 1644.7446155548096
+}
