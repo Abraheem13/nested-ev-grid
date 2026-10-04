@@ -1,96 +1,121 @@
-# NFL-EV v2 base configuration
-# All experiments compose: base.yaml + network/*.yaml + dataset/*.yaml + method/*.yaml
+# NFL-EV v3 configuration. Every value is read by the code; nothing here is decorative.
 seed: 0
-device: auto
 
 simulation:
-  resolution_s: 60          # quasi-static time-series resolution (QSTS standard).
-                            # Set to 1 for high-resolution validation runs (R1.4).
-  dispatch_interval_s: 900  # Level 2 decision interval (15 min)
-  pricing_interval_s: 3600  # Level 1 decision interval (1 h)
+  resolution_s: 60            # QSTS step (power flow + Level-3 correction every step)
+  dispatch_interval_s: 900    # Level 2 decision interval
+  pricing_interval_s: 3600    # Level 1 decision interval
   episode_hours: 24
-  use_lightsim: true   # auto-falls back to native if unavailable
-  load_noise_sigma: 0.02    # per-step multiplicative household load noise
+  load_noise_sigma: 0.02      # i.i.d. multiplicative base-load noise per QSTS step
+  price_lookahead_h: 12       # day-ahead price look-ahead exposed to the agents
+
+network:
+  substation_vm_pu: 1.03      # OLTC set point at the substation
+  base_load_scale: null       # null -> calibrated (see nflev.env.calibration)
 
 voltage:
-  v_min: 0.95               # IEEE 1547-2018 floor (p.u.)
-  v_max: 1.05
-  v_critical: 0.90          # full reactive support threshold
-  correction_margin: 0.001  # controller targets v_min + margin (fixes S4=0.9498, R2.3)
-  max_correction_iters: 8   # PF re-solve iterations per timestep
+  v_min: 0.95                 # ANSI C84.1 Range A service-voltage floor
+  v_critical: 0.90            # Q injection saturates at this voltage
+  correction_margin: 0.001    # delta: Level 3 targets v_min + delta
+  max_correction_iters: 8
+  max_fallback_iters: 12        # extra power flows that let the curtailment fallback complete
 
 reactive_power:
-  # R1.2 / R2.2 fix: Q capacity from inverter apparent rating, NOT active power.
-  # Qmax_i = sqrt(S_rated^2 - P_i^2)  -> full STATCOM-mode Q at P=0.
-  s_rated_kva: 12.0          # per-charger inverter rating (11 kW charger + Q headroom)
+  s_rated_kva: 12.0           # per-charger inverter rating
   charger_p_max_kw: 11.0
   charger_efficiency: 0.95
-  curtailment_fallback: true # last-resort active power curtailment when Q exhausted
-  curtailment_step: 0.2      # fraction of charging power shed per fallback iteration
+  curtailment_fallback: true
+  curtailment_step: 0.2       # max fraction of local EV power shed per fallback iteration
 
-level1:  # DSO meta-controller (PPO)
-  state_dim: 8               # +2 vs v1: line loading margin, substation loading (R3.4)
-  price_floor: 0.05          # $/kWh absolute bounds on corridor
-  price_ceil: 0.30
+aggregators:
+  n: 5
+  shares: [0.18, 0.18, 0.19, 0.19, 0.26]   # share of vehicles per aggregator
+  transformer_cap_kw: 500     # per-aggregator (cluster) transformer limit
+  households: 300             # households served through the five aggregators;
+                              # penetration = EVs / households
+  buses:
+    ieee33: [6, 12, 18, 25, 30]             # 1-based bus numbers (Baran & Wu numbering)
+    ieee69: [9, 21, 35, 49, 61]
+
+retail:
+  price_floor: 0.05           # EUR/kWh bounds of the Level-1 corridor
+  price_ceil: 0.40
   min_corridor_width: 0.02
-  reward:
-    alpha_cost: 1.0
-    alpha_vsq: 50.0
-    alpha_vind: 10.0
-    alpha_sat: 5.0
-    alpha_thermal: 5.0       # new: line/transformer overload penalty (R3.4)
+  max_corridor_width: 0.20      # Level-1 width range [min, max]; neutral action -> centred on lambda_ref
+  flat_price: 0.20            # flat retail price used by non-pricing baselines
 
-level2:  # Aggregator agents (DDPG)
-  n_aggregators: 5
-  transformer_cap_kw: 500    # per-aggregator P_cap
-  reward:
-    beta_cost: 1.0
-    beta_unmet: 20.0
-  # R1.3 fix: agent selects execution price within L1 corridor (extra action dim)
-  price_selection: true
-  # R1.5 fix: differentiable projection onto {c : sum(c) <= P_cap, 0 <= c_i <= c_max}
-  action_projection: simplex_scale
+behavior:                     # Level 3a Fishbein acceptance model
+  lambda_ref: 0.20            # EUR/kWh reference retail rate
+  w_cost: [5.0, 1.0]          # N(mu, sigma) per-user weights
+  w_norm: [2.0, 0.5]
+  bias: [0.0, 0.5]
+  social_floor: 0.3
+  deadline_override: 0.7      # accept regardless of price if need > 0.7 * p_max * hours_left
 
-level3:
-  # R1.4 fix: split into two non-parametric sub-layers at distinct frequencies
-  behavior_interval_s: 900   # Fishbein evaluated at dispatch boundaries only
-  behavior:
-    lambda_ref: 0.15         # $/kWh reference residential rate
-    w_cost: [5.0, 1.0]       # N(mu, sigma) per-user cost sensitivity
-    w_norm: [2.0, 0.5]
-    bias: [0.0, 0.5]
-  q_control_interval_s: 1    # conceptual; realized within QSTS step via correction loop
+fleets:
+  residential:
+    arrival_mu_h: 18.0
+    arrival_sigma_h: 2.0
+    arrival_min_h: 12.0
+    arrival_max_h: 23.5
+    dwell_mu_h: 12.0
+    dwell_sigma_h: 3.0
+    dwell_min_h: 2.0
+    dwell_max_h: 16.0
+    soc_init_mu: 0.35
+    soc_init_sigma: 0.15
+    soc_target_mu: 0.85
+    soc_target_sigma: 0.10
 
-curriculum:
-  stages:
-    - {penetration: 0.2, v_bounds: [0.90, 1.10], stochastic: false}
-    - {penetration: 0.4, v_bounds: [0.93, 1.07], stochastic: false}
-    - {penetration: 0.6, v_bounds: [0.95, 1.05], stochastic: true}
-    - {penetration: 0.8, v_bounds: [0.95, 1.05], stochastic: true}
-    - {penetration: 0.8, v_bounds: [0.95, 1.05], stochastic: true, episode_hours: 48}
-  # R1.7 fix: violation rate replaced as advancement metric
-  advance_metrics: [cost_threshold, q_activation_freq, curtailment_freq]
-  advance_window_episodes: 20
+data:
+  train_years: [2023]
+  test_years: [2024]
+  alt_regime_years: [2019]    # pre-crisis price regime (generalization test)
+  val_days: 0                 # training-year days held out for validation; scripts/tune.py uses 30 (TUNING.md)
+
+level1:
+  reward: {cost: 1.0, vdef: 50.0, vind: 10.0, unmet: 5.0, curt: 0.5}
+
+level2:
+  deadline_guard: true        # always serve vehicles whose laxity is exhausted
+  disaggregation: llf         # llf (least-laxity-first) | plan (urgent, then planned, then laxity) | proportional
+  shared: true                # one actor-critic shared by the aggregators (id one-hot in the state)
+  prior: residual             # residual | feature | none: cheapest-slot plan as residual base,
+                              # as an input feature only, or not at all
+  residual_scale: 0.1         # rho in u = clip(u0 + rho (2a - 1), 0, 1)
+  residual_init: true         # actor starts at zero residual (output layer ~0)
+  residual_penalty: 0.0        # beta: actor regularizer on the residual, beta*(2a-1)^2 (0 = off)
+  reward: {mode: cost, margin: 1.0, unmet: 2.0, urgency: 0.5, curt: 0.5}
+  revenue_neutral: {enabled: true, w_init: 0.0, kp: 2.0, ki: 0.05, ema: 0.2, w_min: -2.0, w_max: 2.0}   # PI Lagrangian: mean retail price = lambda_ref
 
 training:
-  total_timesteps: 400000
-  ppo: {lr: 3.0e-4, gamma: 0.99, gae_lambda: 0.95, clip: 0.2, epochs: 10}
-  ddpg: {lr_actor: 1.0e-4, lr_critic: 1.0e-3, tau: 0.005, batch: 64, buffer: 200000}
+  episodes: 600
+  checkpoint_every: 50        # crash-safe resumable training state
+  snapshot_every: 100         # policy snapshots for learning curves
+  ppo: {lr: 3.0e-4, gamma: 0.99, gae_lambda: 0.95, clip: 0.2, epochs: 10, entropy: 0.001}
+  ddpg: {lr_actor: 1.0e-4, lr_critic: 1.0e-3, tau: 0.005, batch: 128, buffer: 200000,
+         gamma: 0.999, noise_start: 0.3, noise_end: 0.05, noise_decay: 0.995, warmup: 1000}
+
+curriculum:
+  window: 20                  # episodes per advancement check
+  sq_min: 0.95                # advance only if mean service quality >= sq_min ...
+  curt_max_kwh: 20.0          # ... and mean curtailment <= curt_max_kwh
+  stages:
+    - {n_ev: 60}
+    - {n_ev: 120}
+    - {n_ev: 180}
+    - {n_ev: 240}
+    - {n_ev: 300}
+    - {n_ev_range: [120, 300]}   # final stage: fleet size randomised over S1-S5
 
 evaluation:
-  n_episodes: 50
+  episodes: 50
+  seed_base: 7000
   scenarios:
-    S1: {penetration: 0.40, n_ev: 30}
-    S2: {penetration: 0.67, n_ev: 50}
-    S3: {penetration: 0.80, n_ev: 60}
-    S4: {penetration: 0.80, n_ev: 60, load_forecast_noise: 0.15}
-    S5: {penetration: 1.00, n_ev: 75}
-    S6_deadlock: {penetration: 0.80, n_ev: 60, force_zero_charging_window: [19, 20]}
-    S7_q_exhaustion: {penetration: 1.20, n_ev: 90, s_rated_derate: 0.5}
-
-network_operating_point:
-  # Explicit nominal operating point (addresses R3.1: assumptions now stated).
-  # Substation OLTC regulated setpoint + base-load scaling such that the
-  # no-EV feeder is IEEE 1547 compliant (nominal vmin ~= 0.96 p.u.).
-  ext_grid_vm_pu: 1.03
-  base_load_scale: 0.85
+    S1: {n_ev: 120}                                   # 40 % penetration
+    S2: {n_ev: 200}                                   # 67 %
+    S3: {n_ev: 240}                                   # 80 %
+    S4: {n_ev: 240, forecast_error_sigma: 0.15}       # 80 % + 15 % load-forecast error
+    S5: {n_ev: 300}                                   # 100 %
+    S6: {n_ev: 240, force_zero_charging_window: [19, 20]}   # deadlock stress
+    S7: {n_ev: 360, s_rated_derate: 0.5}              # 120 %, inverters derated to 50 %

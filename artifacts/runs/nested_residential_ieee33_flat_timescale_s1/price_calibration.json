@@ -1,0 +1,9 @@
+{
+  "price_offset": 0.004687500000000001,
+  "retail_uncalibrated": 0.1957239116782832,
+  "retail_calibrated": 0.1998257425887336,
+  "lambda_ref": 0.2,
+  "days": 10,
+  "split": "train",
+  "seed": 500000
+}

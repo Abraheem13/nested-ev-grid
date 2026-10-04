@@ -1,0 +1,12 @@
+{
+  "method": "nested",
+  "fleet": "residential",
+  "network": "ieee33",
+  "seed": 1,
+  "ablation": "no_l3",
+  "episodes": null,
+  "config": "/home/user/nested-ev-grid/configs/base.yaml",
+  "out": "/home/user/nested-ev-grid/artifacts/runs/nested_residential_ieee33_no_l3_s1",
+  "final_stage": 5,
+  "wall_s": 1605.17067360878
+}

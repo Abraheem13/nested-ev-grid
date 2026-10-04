@@ -1,0 +1,12 @@
+{
+  "method": "nested",
+  "fleet": "acn_caltech",
+  "network": "ieee33",
+  "seed": 1,
+  "ablation": "none",
+  "episodes": null,
+  "config": "/home/user/nested-ev-grid/configs/base.yaml",
+  "out": "/home/user/nested-ev-grid/artifacts/runs/nested_acn_caltech_ieee33_none_s1",
+  "final_stage": 5,
+  "wall_s": 1550.668803691864
+}

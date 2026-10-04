@@ -1,29 +1,52 @@
-# NFL-EV v2 — Nested Learning for Multi-Timescale EV Charging Coordination
+# Nested multi-timescale learning for EV charging coordination
 
-Rebuild + revision codebase targeting **ACM TAAS**. Every module maps to a
-reviewer concern (R1.x / R2.x / R3.x annotations in docstrings).
+Code, data pipeline and paper sources for *"Charge Fully, Stay Safe: Nested
+Multi-Timescale Learning for EV Charging Coordination"* (submitted to IEEE
+Transactions on Sustainable Energy).
 
-## Reviewer-concern → code map
-| Concern | Fix | Where |
-|---|---|---|
-| R1.2/R2.2 deadlock | Q from inverter S-rating: `Qmax=√(S²−P²)`, full Q at P=0 | `env/qcontrol.py` |
-| R2.2/R2.3 guarantee | v_target margin + Newton closure + curtailment fallback; S6/S7 stress scenarios | `env/qcontrol.py`, `configs/base.yaml` |
-| R1.3 price discontinuity | L2 agents select execution price within corridor (extra action dim) | `env/charging_env.py::set_dispatch` |
-| R1.5 sum constraint | Projection onto bounded simplex by construction | `agents/projection.py` |
-| R1.4 temporal coupling | Level 3 split: behavior @15-min (L3a), Q control within-step (L3b) | `env/behavior.py`, `env/qcontrol.py` |
-| R3.4 DSO constraints | Line loading + substation capacity in L1 state & reward | `env/network.py::constraint_features` |
-| R3.1 assumptions | Explicit nominal operating point (OLTC 1.03 p.u., 0.85 base scale) | `configs/base.yaml` |
-| R1.7 curriculum metric | Advancement on cost + Q-activation + curtailment frequency | `configs/base.yaml` |
-| R2.4/R3.6 baselines | PPO-Lagrangian, CPO, HRL baseline (Day 4) | `agents/` |
+**One command regenerates every number, table and figure in the paper:**
 
-## Simulation model
-Quasi-static time series at 60 s (configurable to 1 s for the high-resolution
-validation experiment), full AC Newton–Raphson power flow (pandapower, warm
-start), within-step corrective Q convergence.
-
-## Run
-```
+```bash
 pip install -r requirements.txt
-python tests/test_env.py          # Day-1 smoke suite
+python reproduce.py --jobs 8        # data -> tests -> model selection -> training -> calibration -> evaluation -> paper
 ```
-# nested-ev-grid
+
+`reproduce.py` is resumable (finished jobs are skipped, interrupted training
+runs resume from their last checkpoint). `python reproduce.py --from-results`
+rebuilds only the tables, figures and `paper/generated/numbers.tex` from the
+stored evaluation logs; `python reproduce.py --quick` is a smoke run (one seed,
+30 training episodes, three evaluation days). If `pdflatex` is installed the
+paper is compiled and checked automatically (`scripts/check_paper.py`).
+
+## What is in the box
+
+| Path | Content |
+|---|---|
+| `src/nflev/grid/` | MATPOWER IEEE 33/69-bus feeders, radial AC power flow (backward/forward sweep, validated against pandapower Newton-Raphson to 1e-8 p.u.) |
+| `src/nflev/data/` | ENTSO-E NL day-ahead prices, Pecan Street household loads, ACN-Data sessions (downloaded from pinned PyPI wheels, SHA-256 verified) |
+| `src/nflev/env/` | 60-s quasi-static simulation: price acceptance (L3a), reactive correction (L3b), feasibility layer (projection, least-laxity-first allocation), planning prior |
+| `src/nflev/training/` | Nested controller: L1 PPO price corridor, L2 plan-residual DDPG dispatch, rewards, curriculum, resumable training |
+| `src/nflev/baselines/` | Uncoordinated, TOU timer, price-aware heuristic, perfect-foresight MPC LP-OPF, flat DDPG, PPO-Lagrangian, CPO, hierarchical RL |
+| `src/nflev/eval/` | Paired evaluation on held-out days, statistics, tables, figures, number macros, data-checked claims |
+| `configs/base.yaml` | Every parameter of the study (read by the code; nothing decorative) |
+| `TUNING.md`, `scripts/tune.py` | Pre-registered model selection on 30 held-out 2023 days (allocation and residual-penalty candidates) and its result |
+| `paper/` | LaTeX sources; `paper/generated/` is written by `reproduce.py`; `REFERENCES_VERIFICATION.md` documents how every reference was verified |
+| `artifacts/` | Trained policies, training logs, per-episode evaluation logs, provenance |
+| `tests/` | Power flow, data integrity, feasibility, energy accounting, Level 3, training-pipeline tests |
+
+## Data
+
+All data are public and fetched automatically by `nflev.data.sources.ensure_data()`:
+
+* Netherlands day-ahead prices (ENTSO-E Transparency Platform) and Pecan Street
+  residential load profiles, as bundled in `ev2gym==2.0.0`;
+* ACN-Data charging sessions (Caltech, JPL), as bundled in `sustaingym==0.1.7`;
+* IEEE 33- and 69-bus feeders from MATPOWER (vendored in `data/networks/`, see `SOURCE.md`).
+
+Household load data were provided by Pecan Street Inc. (Dataport).
+
+## Legacy material
+
+The superseded v2 code, results and logs were removed from the working tree;
+they remain in the git history. `LEGACY.md` lists every removed path, what
+replaced it, and the one-line command that restores it.

@@ -11,3 +11,25 @@ nohup.out
 
 logs_*.out
 
+
+# v3
+data/cache/
+artifacts_quick/
+artifacts/logs/
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.bbl
+paper/*.blg
+paper/*.fls
+paper/*.fdb_latexmk
+paper/*.synctex.gz
+# training-time files (resumable checkpoints and learning-curve snapshots)
+artifacts/runs/*/checkpoint.pt
+artifacts/runs/*/checkpoint.tmp
+artifacts/runs/*/snapshot_ep*.pt
+
+# training-time files of the model-selection round
+artifacts/tuning/*/s*/checkpoint.pt
+artifacts/tuning/*/s*/checkpoint.tmp
+artifacts/tuning/*/s*/snapshot_ep*.pt

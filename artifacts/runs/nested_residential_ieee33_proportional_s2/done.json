@@ -1,0 +1,12 @@
+{
+  "method": "nested",
+  "fleet": "residential",
+  "network": "ieee33",
+  "seed": 2,
+  "ablation": "proportional",
+  "episodes": null,
+  "config": "/home/user/nested-ev-grid/configs/base.yaml",
+  "out": "/home/user/nested-ev-grid/artifacts/runs/nested_residential_ieee33_proportional_s2",
+  "final_stage": 5,
+  "wall_s": 1600.1362388134003
+}

@@ -1,308 +1,369 @@
-"""Multi-timescale EV charging coordination environment (v2).
+"""Multi-timescale EV charging environment on a radial feeder (v3).
 
-Timescale structure:
-  Level 1 (3600 s): DSO price corridor [p_min, p_max]  (+ R3.4 network features)
-  Level 2 (900 s):  per-aggregator charging dispatch + execution price
-                    selection within the corridor (R1.3 fix)
-  Level 3a (900 s): Fishbein acceptance at dispatch boundaries (R1.4 fix)
-  Level 3b (<= resolution): reactive correction loop inside each QSTS step
+Timescales
+  Level 1  (1 h)     DSO sets the retail price corridor [p_min, p_max].
+  Level 2  (15 min)  each aggregator sets its execution price and its charging
+                     dispatch (aggregate set point or per-vehicle rates).
+  Level 3a (15 min)  vehicles accept or decline the execution price.
+  Level 3b (60 s)    AC power flow and reactive correction every QSTS step.
 
-Simulation: quasi-static time series (QSTS) at `resolution_s` (default 60 s)
-with within-step corrective convergence; a 1-s mode exists for the
-high-resolution validation experiment.
+Energy accounting: a vehicle draws power only while it is connected, has
+accepted the current price, and still needs energy; within a step it never
+draws more than completes its need. Wholesale cost is charged on the energy
+actually drawn from the grid (after any curtailment).
 """
 from __future__ import annotations
-from dataclasses import dataclass, field
+
 import numpy as np
-import pandapower as pp
 
-from .network import NETWORKS, constraint_features
-from .ev_fleet import FleetModel
+from ..grid.network import load_network
+from ..grid.powerflow import RadialPowerFlow
+from .allocation import laxity_h, llf_allocate, project
 from .behavior import FishbeinBehavior
-from .qcontrol import ReactivePowerController
-from ..agents.projection import PROJECTIONS
+from .calibration import base_load_scale
+from .episode import EpisodeSpec
+from .qcontrol import ReactiveController
 
-AGG_BUSES = {"ieee33": [5, 11, 17, 24, 29],   # 0-indexed buses 6,12,18,25,30
-             "ieee69": [8, 20, 34, 48, 60]}   # strong->weak spread incl. bus 61 area
-
-
-@dataclass
-class StepLog:
-    t_h: float = 0.0
-    v_min: float = 1.0
-    q_activated: bool = False
-    q_injected_kvar: float = 0.0
-    curtailed_kw: float = 0.0
-    q_exhausted: bool = False
-    cost_usd: float = 0.0
-    p_total_mw: float = 0.0
-    violation: bool = False
-    line_margin: float = 1.0
-    sub_frac: float = 0.0
+L2_OBS_DIM = 28
+L1_OBS_DIM = 11
 
 
 class ChargingEnv:
-    def __init__(self, cfg: dict, network: str, dataset_cfg: dict,
-                 n_ev: int, seed: int = 0, scenario_mods: dict | None = None):
+    def __init__(self, cfg: dict, network: str = "ieee33", q_control: bool = True):
         self.cfg = cfg
         self.network_name = network
-        self.rng = np.random.default_rng(seed)
-        self.mods = scenario_mods or {}
-
-        sim = cfg["simulation"]
-        self.dt_s = int(self.mods.get("resolution_s", sim["resolution_s"]))
-        self.dispatch_s = sim["dispatch_interval_s"]
-        self.pricing_s = sim["pricing_interval_s"]
-        self.episode_h = self.mods.get("episode_hours", sim["episode_hours"])
-        self.load_noise = sim["load_noise_sigma"]
-        # Noon-to-noon horizon: evening arrivals need the overnight valley
-        # inside the optimization window; a 00:00-24:00 episode strands them.
-        self.wall_offset_h = self.mods.get("wall_offset_h", dataset_cfg.get("wall_offset_h", 12.0))
-
-        self.agg_buses = AGG_BUSES[network]
-        self.n_agg = len(self.agg_buses)
-        self.fleet = FleetModel(cfg, dataset_cfg, n_ev, self.n_agg, self.rng)
-        self.behavior = FishbeinBehavior(cfg["level3"]["behavior"]["lambda_ref"], self.rng)
-
-        v = cfg["voltage"]
-        rp = cfg["reactive_power"]
-        derate = self.mods.get("s_rated_derate", 1.0)
-        self.s_rated = rp["s_rated_kva"] * derate
+        self.net = load_network(network)
+        self.pf = RadialPowerFlow(self.net, v0=cfg["network"]["substation_vm_pu"])
+        self.agg_bus = np.asarray(cfg["aggregators"]["buses"][network], int) - 1
+        self.n_agg = len(self.agg_bus)
+        self.scale = cfg["network"]["base_load_scale"] or base_load_scale(cfg, network)
+        self.q_enabled = q_control
+        sim, rp = cfg["simulation"], cfg["reactive_power"]
+        self.dt_s = sim["resolution_s"]
+        self.dt_h = self.dt_s / 3600.0
+        self.interval_h = sim["dispatch_interval_s"] / 3600.0
+        self.steps_per_interval = sim["dispatch_interval_s"] // self.dt_s
+        self.look = sim["price_lookahead_h"]
+        self.p_max = rp["charger_p_max_kw"]
         self.eff = rp["charger_efficiency"]
-        self.qctl = ReactivePowerController(
-            v["v_min"], v["v_critical"], v["correction_margin"],
-            v["max_correction_iters"], rp["curtailment_fallback"],
-            rp["curtailment_step"])
-        self.v_min_limit = v["v_min"]
-        self.project = PROJECTIONS[cfg["level2"]["action_projection"]]
-        self.p_cap = cfg["level2"]["transformer_cap_kw"]
+        self.p_cap = cfg["aggregators"]["transformer_cap_kw"]
+        self.v_min = cfg["voltage"]["v_min"]
+        r = cfg["retail"]
+        self.price_floor, self.price_ceil = r["price_floor"], r["price_ceil"]
+        self.min_width, self.flat_price = r["min_corridor_width"], r["flat_price"]
+        self.max_width = r.get("max_corridor_width", 0.20)
+        self.ref_price = cfg["behavior"]["lambda_ref"]
+        self.guard = cfg["level2"]["deadline_guard"]
+        self.disagg = cfg["level2"].get("disaggregation", "llf")
+        self.prior_mode = cfg["level2"].get("prior", "none")
+        self.price_offset = 0.0         # tariff calibration of a learned policy (set by the policy)
 
-        self._use_ls2g = False
-        try:
-            import lightsim2grid  # noqa: F401
-            from lightsim2grid import LightSimBackend  # noqa: F401
-            self._use_ls2g = cfg.get("simulation", {}).get("use_lightsim", True)
-        except Exception:
-            self._use_ls2g = False
-        self._net_template = NETWORKS[network]()
-        self.base_load_p = self._net_template.load.p_mw.values.copy()
-        self.base_load_q = self._net_template.load.q_mvar.values.copy()
+    # ================================================================ reset
+    def reset(self, spec: EpisodeSpec) -> None:
+        self.spec, self.mods = spec, dict(spec.mods)
+        evs = spec.evs
+        self.n_ev = len(evs)
+        self.arr = np.array([e.arrival_h for e in evs])
+        self.dep = np.array([e.departure_h for e in evs])
+        self.need0 = np.array([e.need_kwh for e in evs])
+        self.bat = np.array([e.battery_kwh for e in evs])
+        self.soc0 = np.array([e.soc_init for e in evs])
+        self.agg = np.asarray(spec.ev_agg, int)
+        self.delivered = np.zeros(self.n_ev)
+        self.connected = np.zeros(self.n_ev, bool)
+        self.departed = np.zeros(self.n_ev, bool)
+        self.accepted = np.zeros(self.n_ev, bool)
+        self.alloc = np.zeros(self.n_ev)
+        self.behavior = FishbeinBehavior(self.cfg, self.n_ev, spec.behavior_seed)
+        self.qctl = ReactiveController(self.cfg, self.cfg["reactive_power"]["s_rated_kva"]
+                                       * float(self.mods.get("s_rated_derate", 1.0)))
+        self.t_step = 0
+        self.n_steps = spec.horizon_h * 3600 // self.dt_s
+        self.corridor = np.array([self.flat_price, self.flat_price + self.min_width])
+        self.exec_price = np.full(self.n_agg, self.flat_price)
+        self.actions: dict[int, tuple] = {}
+        self.applied_u = np.zeros(self.n_agg)
+        self.accept_rate = 0.7
+        self.m = dict(cost=0.0, drawn_kwh=0.0, curtailed_kwh=0.0, viol_steps=0, q_steps=0,
+                      vmin=np.inf, peak_ev_kw=0.0, peak_feeder_mw=0.0, exhausted=False,
+                      unmet_kwh=0.0, q_kvarh=0.0, pf_solves=0, revenue=0.0)
+        self.p_nom = self.net.p_load_mw * self.scale
+        self.q_nom = self.net.q_load_mvar * self.scale
+        self._unmet_acc = np.zeros(self.n_agg)
+        self._prior_cache = (-1, None)
+        self._plan_cache = (-1, {})
+        self.price_offset = 0.0
+        self._update_connections(0.0)
+        self.last_res = self.pf.solve(self.p_nom * spec.load_actual[0], self.q_nom * spec.load_actual[0],
+                                      warm=False)
 
-    # ---------------------------------------------------------------- reset
-    def reset(self, price_profile: np.ndarray, load_profile: np.ndarray):
-        """price_profile: hourly wholesale LMP [$/MWh], len == episode_h.
-           load_profile: hourly multiplier on base load, len == episode_h."""
-        self.net = NETWORKS[self.network_name]()
-        self.price_profile = price_profile
-        self.load_profile = load_profile
-        self.t_s = 0
-        self.evs = self.fleet.reset()
-        for ev in self.evs:  # wall clock -> episode time
-            dur = ev.departure_h - ev.arrival_h
-            ev.arrival_h = (ev.arrival_h - self.wall_offset_h) % 24
-            ev.departure_h = ev.arrival_h + dur
-        self.logs: list[StepLog] = []
-        # per-aggregator EV load elements + sgen for Q injection
-        self.ev_load_idx, self.ev_sgen_idx = {}, {}
-        for k, b in enumerate(self.agg_buses):
-            self.ev_load_idx[k] = pp.create_load(self.net, b, p_mw=0.0, q_mvar=0.0,
-                                                 name=f"agg{k}_ev")
-            self.ev_sgen_idx[k] = pp.create_sgen(self.net, b, p_mw=0.0, q_mvar=0.0,
-                                                 name=f"agg{k}_v2g_q")
-        self.corridor = np.array([0.08, 0.20])
-        self.exec_prices = np.full(self.n_agg, 0.12)
-        self.agg_rates: dict[int, dict[int, float]] = {k: {} for k in range(self.n_agg)}
-        self._episode_cost = 0.0
-        return self._l1_state()
+    # ============================================================== helpers
+    @property
+    def t_h(self) -> float:
+        return self.t_step * self.dt_h
 
-    # --------------------------------------------------------------- states
-    def _solved_pf(self):
-        kw = {"lightsim2grid": True} if self._use_ls2g else {}
-        try:
-            pp.runpp(self.net, init="results", numba=True, **kw)
-        except Exception:
-            try:
-                pp.runpp(self.net, init="auto", numba=True, **kw)
-            except Exception:
-                pp.runpp(self.net, init="auto", numba=True)
+    @property
+    def done(self) -> bool:
+        return self.t_step >= self.n_steps
 
-    def _l1_state(self) -> np.ndarray:
-        self._apply_loads(self.t_s / 3600.0)
-        self._solved_pf()
-        lm, sf = constraint_features(self.net)
-        vm = self.net.res_bus.vm_pu
-        n_conn = sum(e.connected for e in self.evs)
-        socs = [e.soc for e in self.evs if e.connected]
-        return np.array([
-            vm.mean(), self.net.res_load.p_mw.sum() * 1000.0 / 5000.0,
-            self.net.res_load.q_mvar.sum() * 1000.0 / 3000.0,
-            self._lmp(self.t_s / 3600.0) / 100.0,
-            n_conn / max(1, self.fleet.n_ev),
-            float(np.mean(socs)) if socs else 0.0,
-            lm, sf,  # R3.4 features
-        ], dtype=np.float32)
+    def wall_hour(self, t_h: float | None = None) -> float:
+        return (self.spec.start_hour + (self.t_h if t_h is None else t_h)) % 24.0
 
-    def l2_state(self, k: int, max_evs: int = 40) -> np.ndarray:
-        evs = self.fleet.connected_by_aggregator(k)[:max_evs]
-        b = self.agg_buses[k]
-        head = [self.net.res_bus.vm_pu.at[b],
-                float(self.net.load.at[self.ev_load_idx[k], "p_mw"]) * 1000 / self.p_cap,
-                float(self.net.sgen.at[self.ev_sgen_idx[k], "q_mvar"]) * 1000 / 250.0,
-                self.exec_prices[k] / 0.3,
-                self.corridor[0] / 0.3, self.corridor[1] / 0.3]
-        evf = np.zeros(max_evs * 3, dtype=np.float32)
-        t_h = self.t_s / 3600.0
-        for j, e in enumerate(evs):
-            evf[j*3:(j+1)*3] = [e.soc, e.soc_target,
-                                min(1.0, (e.departure_h - t_h) / 12.0)]
-        return np.concatenate([np.array(head, dtype=np.float32), evf])
+    def lmp(self, t_h: float | None = None) -> float:
+        t = self.t_h if t_h is None else t_h
+        return float(self.spec.prices[min(int(t), len(self.spec.prices) - 1)])
 
-    def _lmp(self, t_h: float) -> float:
-        wall = (t_h + self.wall_offset_h) % 24 + 24 * (t_h // 24)
-        return float(self.price_profile[min(int(wall), len(self.price_profile) - 1)])
+    def need(self) -> np.ndarray:
+        return np.maximum(self.need0 - self.delivered, 0.0)
 
-    # --------------------------------------------------------------- actions
-    def set_corridor(self, p_min: float, p_max: float):
-        l1 = self.cfg["level1"]
-        p_min = float(np.clip(p_min, l1["price_floor"], l1["price_ceil"]))
-        p_max = float(np.clip(p_max, p_min + l1["min_corridor_width"], l1["price_ceil"]))
+    def hours_left(self) -> np.ndarray:
+        return self.dep - self.t_h
+
+    def soc(self) -> np.ndarray:
+        return self.soc0 + self.delivered / self.bat
+
+    def _update_connections(self, t_h: float) -> None:
+        """Plug vehicles in/out; unmet energy of departing vehicles is booked
+        to the aggregator's running `_unmet_acc` and to the episode total."""
+        arriving = (~self.connected) & (~self.departed) & (self.arr <= t_h + 1e-9)
+        self.connected |= arriving
+        leaving = np.flatnonzero(self.connected & (self.dep <= t_h + 1e-9))
+        if len(leaving):
+            um = self.need()[leaving]
+            np.add.at(self._unmet_acc, self.agg[leaving], um)
+            self.m["unmet_kwh"] += float(um.sum())
+            self.connected[leaving] = False
+            self.departed[leaving] = True
+            self.alloc[leaving] = 0.0
+
+    # ============================================================== actions
+    def set_corridor(self, p_min: float, p_max: float) -> None:
+        p_min = float(np.clip(p_min, self.price_floor, self.price_ceil - self.min_width))
+        p_max = float(np.clip(p_max, p_min + self.min_width, self.price_ceil))
         self.corridor = np.array([p_min, p_max])
 
-    def set_dispatch(self, k: int, rates_raw: np.ndarray, price_frac: float):
-        """R1.3: price_frac in [0,1] selects execution price inside corridor.
-           R1.5: rates projected onto feasible set by construction."""
-        self.exec_prices[k] = self.corridor[0] + price_frac * (self.corridor[1] - self.corridor[0])
-        evs = self.fleet.connected_by_aggregator(k)
-        n = len(evs)
-        if n == 0:
-            self.agg_rates[k] = {}
-            return
-        c_max = np.array([e.p_max_kw for e in evs])
-        r = np.asarray(rates_raw, dtype=float)
-        if len(r) < n:  # agents with fewer action slots than connected EVs
-            r = np.concatenate([r, np.zeros(n - len(r))])
-        c = self.project(r[:n], c_max, self.p_cap)
-        # zero-charging forcing window (deadlock experiment S6)
-        w = self.mods.get("force_zero_charging_window")  # wall-clock hours
-        wall_h = (self.t_s / 3600.0 + self.wall_offset_h) % 24
-        if w and w[0] <= wall_h < w[1]:
-            c = np.zeros_like(c)
-        self.agg_rates[k] = {e.idx: float(c[i]) * float(e.accepted) for i, e in enumerate(evs)}
+    def set_aggregate(self, k: int, u: float, price_frac: float) -> None:
+        self.actions[k] = ("agg", float(u), float(np.clip(price_frac, 0, 1)))
 
-    # ------------------------------------------------------------- stepping
-    def run_dispatch_interval(self) -> dict:
-        """Advance one 15-min interval at QSTS resolution. Returns interval metrics."""
-        t0_h = self.t_s / 3600.0
-        self.fleet.step_connections(t0_h)
-        # L3a: behavioral response at the dispatch boundary
-        mean_price = float(np.mean(self.exec_prices))
+    def set_rates(self, k: int, rates: dict, price_frac: float = 0.0) -> None:
+        """rates: vehicle index -> requested kW (missing vehicles get 0)."""
+        self.actions[k] = ("rate", rates, float(np.clip(price_frac, 0, 1)))
+
+    # ============================================================= stepping
+    def run_interval(self) -> dict:
+        t0 = self.t_h
+        price_now, price_ahead = self.lmp(t0), float(self._lmp_ahead(self.look).mean())
+        self._update_connections(t0)
+        lo, hi = self.corridor
+        for k in range(self.n_agg):
+            p = lo + self.actions.get(k, ("rate", {}, 0.0))[2] * (hi - lo)
+            self.exec_price[k] = p if self.price_offset == 0.0 else \
+                float(np.clip(p + self.price_offset, self.price_floor, self.price_ceil))
+        need = self.need()
+        live = np.flatnonzero(self.connected & (need > 1e-6))
+        self.accepted[:] = False
         if self.mods.get("disable_behavior"):
-            for e in self.evs:
-                e.accepted = True
-            accept_rate = 1.0
-        else:
-            accept_rate = self.behavior.evaluate(self.evs, mean_price, t_h=t0_h)
-
-        steps = self.dispatch_s // self.dt_s
-        interval_cost = 0.0
-        v_mins, q_acts, curts, exhausted = [], 0, 0.0, False
-        for s in range(steps):
-            t_h = (self.t_s + s * self.dt_s) / 3600.0
-            self.fleet.step_connections(t_h)
-            self._apply_loads(t_h)
-            self._solved_pf()
-            charger_map = self._charger_map()
-            if self.mods.get("disable_q_control"):
-                from .qcontrol import QControlResult
-                v = float(self.net.res_bus.vm_pu.min())
-                res = QControlResult(v_min_pre=v, v_min_post=v)
-            else:
-                res = self.qctl.correct(self.net, charger_map)
-            log = StepLog(
-                t_h=t_h, v_min=res.v_min_post, q_activated=res.activated,
-                q_injected_kvar=sum(res.q_injected_kvar.values()),
-                curtailed_kw=sum(res.curtailed_kw.values()),
-                q_exhausted=res.q_exhausted,
-                p_total_mw=float(self.net.res_load.p_mw.sum()),
-                violation=res.v_min_post < self.v_min_limit - 1e-9,
-            )
-            log.line_margin, log.sub_frac = constraint_features(self.net)
-            dt_h = self.dt_s / 3600.0
-            ev_p_kw = self._total_ev_kw(after_curtail=res)
-            log.cost_usd = self._lmp(t_h) / 1000.0 * ev_p_kw * dt_h
-            interval_cost += log.cost_usd
-            self.logs.append(log)
-            v_mins.append(res.v_min_post)
-            q_acts += res.activated
-            curts += log.curtailed_kw
-            exhausted |= res.q_exhausted
-            # charging progress (post-curtailment rates)
-            eff_rates = self._effective_rates(res)
-            self.fleet.apply_charging(eff_rates, dt_h, self.eff)
-            self._reset_injections()
-        self.t_s += self.dispatch_s
-        self._episode_cost += interval_cost
-        return {"cost": interval_cost, "v_min": min(v_mins), "q_activations": q_acts,
-                "curtailed_kwh": curts * (self.dt_s / 3600.0),
-                "q_exhausted": exhausted, "accept_rate": accept_rate}
-
-    # -------------------------------------------------------------- helpers
-    def _apply_loads(self, t_h: float):
-        wall = (t_h + self.wall_offset_h) % 24 + 24 * (t_h // 24)
-        mult = self.load_profile[min(int(wall), len(self.load_profile) - 1)]
-        noise = self.rng.normal(1.0, self.load_noise)
-        fnoise = self.mods.get("load_forecast_noise", 0.0)
-        if fnoise:
-            mult *= self.rng.normal(1.0, fnoise / 3)
-        n_base = len(self.base_load_p)
-        self.net.load.iloc[:n_base, self.net.load.columns.get_loc("p_mw")] = \
-            self.base_load_p * mult * noise
-        self.net.load.iloc[:n_base, self.net.load.columns.get_loc("q_mvar")] = \
-            self.base_load_q * mult * noise
+            self.accepted[live] = True
+        elif len(live):
+            self.accepted[live] = self.behavior.evaluate(
+                live, self.exec_price[self.agg[live]], need[live],
+                self.dep[live] - t0, self.p_max)
+        self.accept_rate = float(self.accepted[live].mean()) if len(live) else self.accept_rate
+        self.alloc[:] = 0.0
+        forced = self.mods.get("force_zero_charging_window")
+        zero_now = bool(forced) and forced[0] <= self.wall_hour(t0) < forced[1]
         for k in range(self.n_agg):
-            p_kw = sum(self.agg_rates[k].values())
-            self.net.load.at[self.ev_load_idx[k], "p_mw"] = p_kw / 1000.0
-
-    def _charger_map(self) -> dict:
-        m = {}
-        for k, b in enumerate(self.agg_buses):
-            evs = self.fleet.connected_by_aggregator(k)
-            if not evs:
+            mem = live[(self.agg[live] == k) & self.accepted[live]]
+            if len(mem) == 0:
+                self.applied_u[k] = 0.0
                 continue
-            p = np.array([self.agg_rates[k].get(e.idx, 0.0) for e in evs])
-            m[b] = {"sgen_idx": self.ev_sgen_idx[k],
-                    "s_rated_kva": np.full(len(evs), self.s_rated),
-                    "p_kw": p, "load_idx": self.ev_load_idx[k]}
-        return m
+            cap = np.minimum(self.p_max, need[mem] / (self.eff * self.interval_h))
+            kind, a, _ = self.actions.get(k, ("rate", {}, 0.0))
+            if kind == "agg":
+                lax = laxity_h(self.dep[mem] - t0, need[mem], self.p_max, self.eff)
+                planned = np.isin(mem, self.plan_set(k)) if self.disagg == "plan" else None
+                rates, self.applied_u[k] = llf_allocate(a, cap, lax, self.p_cap, self.interval_h,
+                                                        self.guard, self.disagg, planned)
+            else:
+                req = np.array([a.get(int(i), 0.0) for i in mem])
+                rates = project(req, cap, self.p_cap)
+                avail = min(self.p_cap, cap.sum())
+                self.applied_u[k] = rates.sum() / avail if avail > 0 else 0.0
+            if zero_now:
+                rates = np.zeros_like(rates)
+            self.alloc[mem] = rates
+        self.actions = {}
 
-    def _effective_rates(self, res) -> dict[int, float]:
-        rates = {}
-        for k, b in enumerate(self.agg_buses):
-            shed_frac = 0.0
-            if b in res.curtailed_kw:
-                tot = sum(self.agg_rates[k].values())
-                shed_frac = min(1.0, res.curtailed_kw[b] / tot) if tot > 0 else 0.0
-            for idx, r in self.agg_rates[k].items():
-                rates[idx] = r * (1.0 - shed_frac)
-        return rates
+        per = {key: np.zeros(self.n_agg) for key in
+               ("drawn_kwh", "delivered_kwh", "cost", "curtailed_kwh", "unmet_kwh")}
+        info = dict(vmin=np.inf, viol_steps=0, q_steps=0, cost=0.0, curtailed_kwh=0.0)
+        load = self.spec.load_actual
+        for _ in range(self.steps_per_interval):
+            t = self.t_h
+            self._update_connections(t)
+            need = self.need()
+            ok = self.connected & self.accepted & (self.alloc > 0)
+            drawn = np.where(ok, np.minimum(self.alloc, need / (self.eff * self.dt_h)), 0.0)
+            ev_kw = np.bincount(self.agg, weights=drawn, minlength=self.n_agg)
+            mult = load[min(self.t_step, len(load) - 1)]
+            p_bus = self.p_nom * mult
+            q_bus = self.q_nom * mult
+            np.add.at(p_bus, self.agg_bus, ev_kw / 1000.0)
+            res = self.pf.solve(p_bus, q_bus)
+            self.m["pf_solves"] += 1
+            shed = np.zeros(self.n_agg)
+            if self.q_enabled:
+                conn_by_k = [drawn[(self.agg == k) & self.connected] for k in range(self.n_agg)]
+                qr = self.qctl.correct(self.pf, p_bus, q_bus, self.agg_bus, conn_by_k, res)
+                res, shed = qr.res, qr.shed_frac
+                self.m["pf_solves"] += qr.iterations
+                if qr.activated:
+                    info["q_steps"] += 1
+                    self.m["q_steps"] += 1
+                    self.m["q_kvarh"] += float(qr.q_kvar.sum()) * self.dt_h
+                self.m["exhausted"] |= qr.exhausted
+            eff_rate = drawn * (1.0 - shed[self.agg])
+            self.delivered += eff_rate * self.eff * self.dt_h
+            price = self.lmp(t) / 1000.0                       # EUR/kWh
+            e_k = np.bincount(self.agg, weights=eff_rate * self.dt_h, minlength=self.n_agg)
+            c_k = np.bincount(self.agg, weights=(drawn - eff_rate) * self.dt_h, minlength=self.n_agg)
+            per["drawn_kwh"] += e_k
+            per["delivered_kwh"] += e_k * self.eff
+            per["cost"] += e_k * price
+            self.m["revenue"] += float((e_k * self.eff * self.exec_price).sum())
+            per["curtailed_kwh"] += c_k
+            self.m["cost"] += float(e_k.sum() * price)
+            self.m["drawn_kwh"] += float(e_k.sum())
+            self.m["curtailed_kwh"] += float(c_k.sum())
+            viol = res.vmin < self.v_min - 1e-9
+            self.m["viol_steps"] += int(viol)
+            info["viol_steps"] += int(viol)
+            info["vmin"] = min(info["vmin"], res.vmin)
+            self.m["vmin"] = min(self.m["vmin"], res.vmin)
+            self.m["peak_ev_kw"] = max(self.m["peak_ev_kw"], float(eff_rate.sum()))
+            self.m["peak_feeder_mw"] = max(self.m["peak_feeder_mw"], res.s_sub_mva.real)
+            self.last_res = res
+            self.t_step += 1
+        if self.done:                                   # vehicles still plugged in at the end
+            self._update_connections(np.inf)
+        per["unmet_kwh"] = self._unmet_acc.copy()
+        self._unmet_acc[:] = 0.0
+        info.update(per=per, cost=float(per["cost"].sum()),
+                    curtailed_kwh=float(per["curtailed_kwh"].sum()),
+                    applied_u=self.applied_u.copy(), exec_price=self.exec_price.copy(),
+                    price_now=price_now, price_ahead_mean=price_ahead)
+        return info
 
-    def _total_ev_kw(self, after_curtail) -> float:
-        return sum(self._effective_rates(after_curtail).values())
+    # ====================================================== planning prior
+    def price_plan(self, k: int) -> np.ndarray:
+        """Deadline-aware cheapest-slot plan: the plugged-in vehicles of
+        aggregator k that still need energy and for which the current dispatch
+        interval is among the ceil(need / slot energy) cheapest intervals before
+        departure. Prices are known `price_lookahead_h` ahead; later intervals
+        are valued at the mean known price (naive forecast)."""
+        tau = int(round(self.t_h / self.interval_h))
+        n_tau = int(round(self.spec.horizon_h / self.interval_h))
+        known = tau + int(round(self.look / self.interval_h))
+        slot_kwh = self.p_max * self.eff * self.interval_h
+        lmps_all = np.array([self.lmp(s * self.interval_h) for s in range(tau, n_tau)])
+        unknown = np.arange(tau, n_tau) >= known
+        if unknown.any():
+            lmps_all[unknown] = lmps_all[~unknown].mean()
+        need = self.need()
+        chosen = []
+        for i in np.flatnonzero(self.connected & (self.agg == k)):
+            k_need = int(np.ceil(need[i] / slot_kwh - 1e-9))
+            if k_need <= 0:
+                continue
+            last = min(n_tau, int(np.floor(self.dep[i] / self.interval_h + 1e-9)))
+            lmps = lmps_all[: max(1, last - tau)]
+            if 0 in np.argsort(lmps, kind="stable")[:k_need]:          # slot 0 = now
+                chosen.append(int(i))
+        return np.asarray(chosen, int)
 
-    def _reset_injections(self):
-        for k in range(self.n_agg):
-            self.net.sgen.at[self.ev_sgen_idx[k], "q_mvar"] = 0.0
+    def plan_set(self, k: int) -> np.ndarray:
+        """price_plan(k), cached per simulation step."""
+        if self._plan_cache[0] != self.t_step:
+            self._plan_cache = (self.t_step, {})
+        if k not in self._plan_cache[1]:
+            self._plan_cache[1][k] = self.price_plan(k)
+        return self._plan_cache[1][k]
 
-    # -------------------------------------------------------------- metrics
+    def prior_u(self, k: int) -> float:
+        """Aggregate set point (fraction of available power, as in
+        `llf_allocate`) that the cheapest-slot plan dispatches now."""
+        if self._prior_cache[0] != self.t_step:
+            need = self.need()
+            cap = np.minimum(self.p_max, need / (self.eff * self.interval_h))
+            live = self.connected & (need > 1e-6)
+            u = np.zeros(self.n_agg)
+            for j in range(self.n_agg):
+                avail = min(self.p_cap, float(cap[live & (self.agg == j)].sum()))
+                plan = self.plan_set(j)
+                u[j] = min(1.0, float(cap[plan].sum()) / avail) if avail > 0 and len(plan) else 0.0
+            self._prior_cache = (self.t_step, u)
+        return float(self._prior_cache[1][k])
+
+    # ========================================================= observations
+    def _lmp_ahead(self, hours: int) -> np.ndarray:
+        i = int(self.t_h)
+        p = self.spec.prices
+        return np.array([p[min(i + j, len(p) - 1)] for j in range(hours)])
+
+    def l1_obs(self) -> np.ndarray:
+        res = self.last_res
+        conn = self.connected
+        h = self.wall_hour()
+        return np.array([
+            res.vm[1:].mean(), res.s_sub_mva.real / 5.0, res.s_sub_mva.imag / 3.0,
+            self.lmp() / 200.0, conn.sum() / max(1, self.n_ev),
+            float(self.soc()[conn].mean()) if conn.any() else 0.0,
+            self.pf.line_margin(res), self.pf.substation_loading(res),
+            np.sin(2 * np.pi * h / 24), np.cos(2 * np.pi * h / 24),
+            self._lmp_ahead(self.look).mean() / 200.0,
+        ], dtype=np.float32)
+
+    def l2_obs(self, k: int) -> np.ndarray:
+        res, t = self.last_res, self.t_h
+        mem = np.flatnonzero(self.connected & (self.agg == k))
+        need = self.need()[mem]
+        left = self.dep[mem] - t
+        lax = laxity_h(left, need, self.p_max, self.eff)
+        bins = [(-np.inf, 1.0), (1.0, 3.0), (3.0, 6.0), (6.0, np.inf)]
+        scale = self.p_cap * 1.0
+        lax_feat = [need[(lax >= a) & (lax < b)].sum() / scale for a, b in bins]
+        cap = np.minimum(self.p_max, need / (self.eff * self.interval_h))
+        h = self.wall_hour()
+        obs = [res.vm[self.agg_bus[k]], np.sin(2 * np.pi * h / 24), np.cos(2 * np.pi * h / 24),
+               self.lmp() / 200.0, *(self._lmp_ahead(self.look) / 200.0),
+               self.corridor[0] / self.price_ceil, self.corridor[1] / self.price_ceil,
+               len(mem) / 100.0, need.sum() / scale, min(self.p_cap, cap.sum()) / self.p_cap,
+               *lax_feat, (left.mean() / 12.0) if len(mem) else 0.0, self.accept_rate,
+               self.prior_u(k) if self.prior_mode != "none" else 0.0]
+        return np.asarray(obs, dtype=np.float32)
+
+    # ============================================================== metrics
     def episode_metrics(self) -> dict:
-        v = np.array([l.v_min for l in self.logs])
+        m = self.m
+        req = float(self.need0.sum())
+        deliv = float(np.minimum(self.delivered, self.need0).sum())
         return {
-            "daily_cost_usd": self._episode_cost,
-            "min_voltage_pu": float(v.min()),
-            "violation_rate_pct": 100.0 * float(np.mean([l.violation for l in self.logs])),
-            "service_quality": self.fleet.service_quality(),
-            "q_activation_freq": float(np.mean([l.q_activated for l in self.logs])),
-            "curtailed_kwh": sum(l.curtailed_kw for l in self.logs) * self.dt_s / 3600.0,
-            "q_exhausted_any": any(l.q_exhausted for l in self.logs),
-            "peak_mw": float(max(l.p_total_mw for l in self.logs)),
+            "cost_eur": m["cost"],
+            "energy_drawn_kwh": m["drawn_kwh"],
+            "energy_delivered_kwh": deliv,
+            "energy_requested_kwh": req,
+            "service_quality": deliv / req if req > 0 else 1.0,
+            "unmet_kwh": m["unmet_kwh"],
+            "cost_per_kwh": m["cost"] / deliv if deliv > 0 else float("nan"),
+            "retail_price_paid": m["revenue"] / deliv if deliv > 0 else float("nan"),
+            "min_voltage_pu": m["vmin"],
+            "violation_rate_pct": 100.0 * m["viol_steps"] / self.n_steps,
+            "q_activation_pct": 100.0 * m["q_steps"] / self.n_steps,
+            "q_kvarh": m["q_kvarh"],
+            "curtailed_kwh": m["curtailed_kwh"],
+            "q_exhausted_any": bool(m["exhausted"]),
+            "peak_ev_kw": m["peak_ev_kw"],
+            "peak_feeder_mw": m["peak_feeder_mw"],
+            "pf_solves": m["pf_solves"],
+            "day": str(self.spec.day.date()),
         }

@@ -1,0 +1,25 @@
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+Method & Cost (\euro) & \euro/kWh & Retail & SQ & Viol.\ (\%) & $V_{\min}$ & Curt.\ (kWh) \\
+\midrule
+Uncoordinated & 931.4 {\scriptsize[833.8, 1060.7]} & 0.1146 & 0.200 & 1.000 & 3.99 & 0.9554 & 0.0 \\
+Uncoordinated + L3 & 931.4 {\scriptsize[835.0, 1062.6]} & 0.1146 & 0.200 & 1.000 & 0.00 & 0.9615 & 5.0 \\
+TOU timer & 697.7 {\scriptsize[639.6, 751.2]} & 0.0863 & 0.132 & 0.995 & 4.30 & 0.9372 & 0.0 \\
+TOU timer + L3 & 697.1 {\scriptsize[641.0, 750.9]} & 0.0862 & 0.132 & 0.995 & 0.00 & 0.9515 & 23.7 \\
+Price-aware heuristic & 619.8 {\scriptsize[561.8, 674.2]} & 0.0766 & 0.200 & 0.997 & 0.73 & 0.9598 & 0.0 \\
+Price-aware heuristic + L3 & 619.8 {\scriptsize[564.4, 675.0]} & 0.0766 & 0.200 & 0.997 & 0.00 & 0.9623 & 1.7 \\
+MPC LP-OPF (perfect foresight) & 612.0 {\scriptsize[555.7, 667.2]} & 0.0759 & 0.200 & 0.992 & 0.01 & 0.9634 & 0.0 \\
+MPC LP-OPF (perfect foresight) + L3 & 612.0 {\scriptsize[555.3, 667.3]} & 0.0759 & 0.200 & 0.992 & 0.00 & 0.9635 & 0.0 \\
+\midrule
+Flat DDPG & 756.1 {\scriptsize[695.5, 828.3]} & 0.0934 & 0.203 & 0.996 & 0.45 & 0.9673 & 0.0 \\
+Flat DDPG + L3 & 756.1 {\scriptsize[694.6, 827.0]} & 0.0934 & 0.203 & 0.996 & 0.00 & 0.9686 & 0.1 \\
+PPO-Lagrangian & 790.2 {\scriptsize[725.8, 866.6]} & 0.0976 & 0.199 & 0.996 & 0.19 & 0.9758 & 0.0 \\
+PPO-Lagrangian + L3 & 790.2 {\scriptsize[725.2, 865.0]} & 0.0976 & 0.199 & 0.996 & 0.00 & 0.9763 & 0.0 \\
+CPO & 816.9 {\scriptsize[747.5, 900.1]} & 0.1006 & 0.200 & 0.999 & 0.35 & 0.9731 & 0.0 \\
+CPO + L3 & 817.0 {\scriptsize[748.1, 903.3]} & 0.1006 & 0.200 & 0.999 & 0.00 & 0.9739 & 0.0 \\
+Hierarchical RL & 741.3 {\scriptsize[685.3, 799.4]} & 0.0915 & 0.200 & 0.997 & 0.03 & 0.9741 & 0.0 \\
+Hierarchical RL + L3 & 741.3 {\scriptsize[685.3, 800.0]} & 0.0915 & 0.200 & 0.997 & 0.00 & 0.9743 & 0.0 \\
+\midrule
+\textbf{Nested (proposed)} & \textbf{645.0 {\scriptsize[590.0, 700.0]}} & \textbf{0.0797} & \textbf{0.201} & \textbf{0.997} & \textbf{0.00} & \textbf{0.9665} & \textbf{0.4} \\
+\bottomrule
+\end{tabular}

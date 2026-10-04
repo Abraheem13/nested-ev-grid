@@ -1,47 +1,41 @@
-"""Level 3 slow sub-layer: Fishbein user acceptance model.
+"""Level 3a: price acceptance (Fishbein-Ajzen attitude model), evaluated once per
+dispatch interval, i.e. at the timescale at which the retail price can change.
 
-R1.4 fix: v1 conflated behavioral response with second-scale reactive control
-inside one "continuous" level. v2 splits Level 3 into two non-parametric
-sub-layers at distinct characteristic frequencies:
+    P_accept,i = sigmoid( w_cost,i (lambda_ref - p_i) / lambda_ref + w_norm,i A_bar + b_i )
 
-  L3a (this module): behavioral intention, evaluated only at dispatch
-      boundaries (15 min) when the effective price can change.
-  L3b (qcontrol.py): electromagnetic-timescale reactive correction, realized
-      within each QSTS step.
-
-Human price response therefore never co-evolves with voltage transients.
+p_i is the execution price of the vehicle's own aggregator and A_bar the
+fleet acceptance rate of the previous interval (floored at `social_floor`).
+A vehicle whose remaining need exceeds `deadline_override` x (charger rating x
+hours left) accepts regardless of price.
 """
 from __future__ import annotations
+
 import numpy as np
 
 
 class FishbeinBehavior:
-    def __init__(self, lambda_ref: float, rng: np.random.Generator):
-        self.lambda_ref = lambda_ref
-        self.rng = rng
-        self.prev_accept_rate = 0.7  # social-norm bootstrap
+    def __init__(self, cfg: dict, n_ev: int, seed: int):
+        b = cfg["behavior"]
+        self.lambda_ref = b["lambda_ref"]
+        self.floor = b["social_floor"]
+        self.override = b["deadline_override"]
+        rng = np.random.default_rng(seed)
+        self.w_cost = rng.normal(*b["w_cost"], n_ev)
+        self.w_norm = rng.normal(*b["w_norm"], n_ev)
+        self.bias = rng.normal(*b["bias"], n_ev)
+        self.rng = np.random.default_rng(seed + 1)
+        self.prev_rate = 0.7
 
-    def evaluate(self, evs: list, price: float, t_h: float | None = None) -> float:
-        """Update per-EV `accepted` flags at a dispatch boundary.
-        Returns realized acceptance rate (feeds A_bar for the next interval)."""
-        connected = [e for e in evs if e.connected]
-        if not connected:
-            return self.prev_accept_rate
-        # social-norm floor: prevents a self-reinforcing acceptance collapse
-        # (A_bar -> 0) that has no behavioral basis for captive home charging
-        a_bar = max(0.3, self.prev_accept_rate)
-        n_acc = 0
-        for ev in connected:
-            z = (ev.w_cost * (self.lambda_ref - price) / self.lambda_ref
-                 + ev.w_norm * a_bar + ev.bias)
-            p_acc = 1.0 / (1.0 + np.exp(-z))
-            ev.accepted = bool(self.rng.random() < p_acc)
-            # deadline dominance: a driver whose remaining dwell barely covers
-            # the remaining energy need accepts regardless of price (attitude
-            # toward departure readiness outweighs cost in the Fishbein sum)
-            hrs_left = ev.departure_h - t_h if t_h is not None else 99.0
-            if ev.energy_needed_kwh > 0.7 * ev.p_max_kw * max(0.0, hrs_left):
-                ev.accepted = True
-            n_acc += ev.accepted
-        self.prev_accept_rate = n_acc / len(connected)
-        return self.prev_accept_rate
+    def evaluate(self, idx: np.ndarray, price: np.ndarray, need_kwh: np.ndarray,
+                 hours_left: np.ndarray, p_max_kw: float) -> np.ndarray:
+        """idx: connected vehicle indices; price: their execution prices.
+        Returns a boolean acceptance array aligned with idx."""
+        if len(idx) == 0:
+            return np.zeros(0, bool)
+        a_bar = max(self.floor, self.prev_rate)
+        z = (self.w_cost[idx] * (self.lambda_ref - price) / self.lambda_ref
+             + self.w_norm[idx] * a_bar + self.bias[idx])
+        acc = self.rng.random(len(idx)) < 1.0 / (1.0 + np.exp(-z))
+        acc |= need_kwh > self.override * p_max_kw * np.maximum(hours_left, 0.0)
+        self.prev_rate = float(acc.mean())
+        return acc
