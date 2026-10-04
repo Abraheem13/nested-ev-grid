@@ -37,51 +37,48 @@ Sultan Qaboos University, Muscat, Oman (e-mail: m.waseem@squ.edu.om).}%
 \thanks{Y.~A.~Bangash is with the School of Computing and Artificial Intelligence,
 Sunway University, Selangor, Malaysia (e-mail: yawarb@sunway.edu.my).}}
 
-\markboth{IEEE Transactions on Sustainable Energy}%
+\markboth{IEEE Transactions on Transportation Electrification}%
 {Rashid \MakeLowercase{\textit{et al.}}: Nested Multi-Timescale Learning for EV Charging Coordination}
 
 \maketitle
 
 \begin{abstract}
-Uncoordinated electric-vehicle (EV) charging raises the energy cost of
-distribution feeders and pushes evening voltages below the service-voltage
-floor. Pricing, dispatch and voltage regulation act on timescales of hours,
-minutes and seconds, yet most learning-based coordinators use one decision
-interval. We propose a three-level nested controller. Level~1 (proximal policy
-optimization) sets an hourly retail price corridor. Level~2, a deep
-deterministic policy gradient agent shared by the aggregators, dispatches
-every \SI{15}{min} as a learned residual on a deadline-aware cheapest-slot plan,
-and least-laxity-first allocation makes every dispatch feasible for charger
-and transformer limits by construction. Level~3 is non-parametric: it models
-drivers' price acceptance and, every \SI{60}{s}, corrects voltage with charger
-reactive power bounded by the inverter apparent-power rating, falling back to
-curtailment only when that headroom is exhausted. We evaluate on the IEEE 33-
-and 69-bus feeders with AC power flow, real day-ahead prices, household loads
-and charging sessions, \GEvalDays{} held-out days and \GTrainSeeds{} training
-seeds. At \GPenSThree\% EV penetration the controller cuts energy cost by
-\GSavingNestedUncSThree\% relative to uncoordinated charging with no voltage
-violations% claim: nested_zero_viol_nominal
-\ (uncoordinated: \GUncoordinatedSThreeViol\% of steps) and is the cheapest
-learned controller at every penetration level.% claim: nested_cheapest_learned_main
-\ At nominal load it costs \GGapNestedPaSThree\% more than a price-aware
-heuristic that executes the same plan per vehicle;% claim: pa_cheaper_than_nested_all_main
-\ when the feeder is stressed beyond its reactive capacity, it curtails
+Evening electric-vehicle (EV) charging raises energy cost and pushes
+distribution-feeder voltages below the service floor. Pricing, dispatch and
+voltage regulation act over hours, minutes and seconds, yet most
+learning-based coordinators use one decision interval. We propose a
+three-level nested controller. Proximal policy optimization sets an hourly
+retail price corridor. A shared deep deterministic policy gradient agent
+dispatches every \SI{15}{min} as a learned residual on a deadline-aware
+cheapest-slot plan; least-laxity-first allocation respects charger and
+transformer limits by construction. A non-parametric layer models drivers'
+price acceptance and, every \SI{60}{s}, corrects voltage with charger reactive
+power bounded by the inverter rating, curtailing only when headroom is
+exhausted. On the IEEE 33- and 69-bus feeders with AC power flow and real
+price, load and charging-session data (\GEvalDays{} held-out days,
+\GTrainSeeds{} training seeds), the controller cuts energy cost by
+\GSavingNestedUncSThree\% versus uncoordinated charging at \GPenSThree\%
+penetration with no voltage violations% claim: nested_zero_viol_nominal
+\ and is the cheapest learned controller at every penetration level.% claim: nested_cheapest_learned_main
+\ A price-aware heuristic remains \GGapNestedPaSThree\% cheaper at nominal load;% claim: pa_cheaper_than_nested_all_main
+\ beyond the feeder's reactive capacity, the controller curtails
 \GReductionCurtNestedPaSSeven\% less energy% claim: nested_less_curtailment_than_pa_S7
 \ and leaves \GReductionUnmetNestedPaSSeven\% less undelivered.% claim: nested_less_unmet_than_pa_S7
-\ Attached to the baselines, Level~3 removes their violations up to
-\GPenSFive\% penetration when load forecasts are accurate.% claim: l3_zero_viol_rules_nominal
+\ Attached to any baseline, the voltage layer removes its violations up to
+\GPenSFive\% penetration under accurate load forecasts.% claim: l3_zero_viol_rules_nominal
 % claim: l3_zero_viol_learned_nominal
 \end{abstract}
 
 \begin{IEEEkeywords}
 Deep reinforcement learning, distribution networks, electric vehicle charging,
-multi-timescale control, reactive power, residual policy learning, voltage
-regulation.
+multi-timescale control, reactive power, residual policy learning,
+transportation electrification, voltage regulation.
 \end{IEEEkeywords}
 
 \section{Introduction}
-\IEEEPARstart{G}{lobal} electric-car sales exceeded 17 million in 2024 and are
-expected to pass 20 million in 2025~\cite{iea2025}. Residential charging
+\IEEEPARstart{T}{ransportation} electrification is accelerating: global
+electric-car sales exceeded 17 million in 2024 and are expected to pass 20
+million in 2025~\cite{iea2025}. Residential charging
 concentrates in the evening, when drivers return home and household demand is
 already at its peak. On weak radial feeders this added load depresses
 end-of-line voltages toward and below the $0.95\pu$ lower limit of the
@@ -161,14 +158,16 @@ structure of optimal policies in a distribution network; da Silva \emph{et
 al.}~\cite{dasilva2020}, Park and Moon~\cite{park2022} and Qian \emph{et
 al.}~\cite{qian2021} study multi-agent and navigation settings; Shibl \emph{et
 al.}~\cite{shibl2023} add vehicle-to-grid operation and degradation; Tuchnitz
-\emph{et al.}~\cite{tuchnitz2021} control a fleet; and Orfanoudakis \emph{et
-al.}~\cite{orfanoudakis2025} scale RL with graph neural networks. Reviews
+\emph{et al.}~\cite{tuchnitz2021} control a fleet; Orfanoudakis \emph{et
+al.}~\cite{orfanoudakis2025} scale RL with graph neural networks; and Zhao and
+Lee~\cite{zhao2022pricing} price charging stations with DRL. Reviews
 cover the wider landscape~\cite{fescioglu2023}. EV2Gym~\cite{orfanoudakis2025ev2gym}
 and SustainGym~\cite{yeh2023sustaingym} provide simulation benchmarks and,
 for this study, the bundled open data. Saner \emph{et
 al.}~\cite{saner2022} propose a cooperative hierarchical multi-agent system for
-several stations, and Ye \emph{et al.}~\cite{ye2022local} use multi-agent DRL
-for local energy markets. Hierarchical RL in general is surveyed
+several stations, Wang \emph{et al.}~\cite{wang2025flash} regulate voltage on
+two timescales for flash-charged electric buses, and Ye \emph{et
+al.}~\cite{ye2022local} use multi-agent DRL for local energy markets. Hierarchical RL in general is surveyed
 in~\cite{pateria2021}.
 
 \emph{Safe RL and voltage control.} Constrained policy optimization
@@ -242,7 +241,7 @@ power flow is solved every \SI{60}{s} of simulated time.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.8\columnwidth]{generated/fig_feeder_ieee33.pdf}
+\includegraphics[width=0.74\columnwidth]{generated/fig_feeder_ieee33.pdf}
 \caption{IEEE 33-bus feeder (MATPOWER data, open ties removed) with the five
 aggregator connection points.}
 \label{fig:feeder}
@@ -292,8 +291,7 @@ last-interval fleet acceptance $\bar A$ (floored at 0.3) and heterogeneous
 weights $w^{\mathrm{c}}_i\sim\mathcal{N}(5,1)$, $w^{\mathrm{n}}_i\sim\mathcal{N}(2,0.5^2)$,
 $b_i\sim\mathcal{N}(0,0.5^2)$. A driver whose remaining need exceeds 0.7 times
 the charger rating times the hours to departure accepts regardless of price. Acceptance is drawn
-once per dispatch interval. The model is stylized; Section~\ref{sec:discussion}
-discusses this limitation.
+once per dispatch interval.
 
 \subsection{Energy accounting and metrics}
 A vehicle draws power only while it is plugged in, has accepted the current
@@ -469,7 +467,7 @@ it under every baseline (``+L3'').
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.62\columnwidth]{generated/fig_l3_loop.pdf}
+\includegraphics[width=0.58\columnwidth]{generated/fig_l3_loop.pdf}
 \caption{Level-3b correction inside one \SI{60}{s} step.}
 \label{fig:l3}
 \end{figure}

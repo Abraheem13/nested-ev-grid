@@ -2,7 +2,7 @@
 
 Code, data pipeline, trained policies and paper sources for the article by
 Abraheem Rashid, Faisal Iradat, Waseem Iqbal and Yawar Abbas Bangash
-(submitted to *IEEE Transactions on Sustainable Energy*).
+(submitted to *IEEE Transactions on Transportation Electrification*).
 
 The controller coordinates residential electric-vehicle charging on a
 distribution feeder with three levels, one per timescale:
