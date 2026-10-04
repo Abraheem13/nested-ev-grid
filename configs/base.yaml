@@ -71,7 +71,7 @@ data:
   train_years: [2023]
   test_years: [2024]
   alt_regime_years: [2019]    # pre-crisis price regime (generalization test)
-  val_days: 30                # training-year days held out for model selection (never trained on)
+  val_days: 0                 # training-year days held out for validation; scripts/tune.py uses 30 (TUNING.md)
 
 level1:
   reward: {cost: 1.0, vdef: 50.0, vind: 10.0, unmet: 5.0, curt: 0.5}

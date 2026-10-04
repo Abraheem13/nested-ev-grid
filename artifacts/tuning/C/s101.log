@@ -1,0 +1,30 @@
+[none/residential/ieee33/s101] ep   0 stage0 n_ev=60 cost=253.3 SQ=0.995 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep  19 stage1 n_ev=60 cost=132.7 SQ=0.996 viol=0.00% curt=0.0 ADVANCED
+[none/residential/ieee33/s101] ep  25 stage1 n_ev=120 cost=99.6 SQ=0.990 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep  39 stage2 n_ev=120 cost=464.8 SQ=0.997 viol=0.00% curt=0.0 ADVANCED
+[none/residential/ieee33/s101] ep  50 stage2 n_ev=180 cost=496.2 SQ=0.993 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep  59 stage3 n_ev=180 cost=136.4 SQ=0.995 viol=0.00% curt=0.0 ADVANCED
+[none/residential/ieee33/s101] ep  75 stage3 n_ev=240 cost=763.5 SQ=0.993 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep  79 stage4 n_ev=240 cost=742.4 SQ=0.995 viol=0.00% curt=0.0 ADVANCED
+[none/residential/ieee33/s101] ep  99 stage5 n_ev=300 cost=1760.2 SQ=0.994 viol=0.00% curt=0.0 ADVANCED
+[none/residential/ieee33/s101] ep 100 stage5 n_ev=176 cost=429.8 SQ=0.997 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 125 stage5 n_ev=205 cost=615.3 SQ=0.995 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 150 stage5 n_ev=281 cost=442.7 SQ=0.998 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 175 stage5 n_ev=283 cost=1363.6 SQ=0.990 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 200 stage5 n_ev=297 cost=1092.0 SQ=0.992 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 225 stage5 n_ev=131 cost=433.8 SQ=0.996 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 250 stage5 n_ev=145 cost=490.4 SQ=0.998 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 275 stage5 n_ev=253 cost=787.0 SQ=0.998 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 300 stage5 n_ev=272 cost=855.7 SQ=0.995 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 325 stage5 n_ev=249 cost=878.7 SQ=0.993 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 350 stage5 n_ev=262 cost=137.9 SQ=0.997 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 375 stage5 n_ev=297 cost=874.2 SQ=0.995 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 400 stage5 n_ev=252 cost=697.6 SQ=0.992 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 425 stage5 n_ev=148 cost=502.0 SQ=0.996 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 450 stage5 n_ev=295 cost=625.7 SQ=0.996 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 475 stage5 n_ev=165 cost=493.5 SQ=0.995 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 500 stage5 n_ev=241 cost=1127.7 SQ=0.997 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 525 stage5 n_ev=219 cost=944.0 SQ=0.996 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 550 stage5 n_ev=262 cost=1038.6 SQ=0.995 viol=0.00% curt=0.0 
+[none/residential/ieee33/s101] ep 575 stage5 n_ev=126 cost=624.7 SQ=0.994 viol=0.00% curt=0.0 
+{"price_offset": -0.013281250000000001, "retail_uncalibrated": 0.21227984831583194, "retail_calibrated": 0.19991610308311417, "lambda_ref": 0.2, "days": 10, "split": "train", "seed": 500000}

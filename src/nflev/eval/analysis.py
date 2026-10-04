@@ -789,9 +789,28 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
         if "nested" in offs:
             N.add("calib offset nested min", min(offs["nested"]), 3)
             N.add("calib offset nested max", max(offs["nested"]), 3)
+    tune_f = art / "tuning" / "summary.csv"                 # model selection (TUNING.md)
+    if tune_f.exists():
+        tu = pd.read_csv(tune_f).groupby(["candidate", "scenario"]).mean(numeric_only=True)
+        sel = json.loads((art / "tuning" / "selected.json").read_text())
+        alt = [c for c in sorted({c for c, _ in tu.index}) if c != "A"]
+        rel = lambda col, sc: {c: 100 * (tu.loc[(c, sc), col] / tu.loc[("A", sc), col] - 1) for c in alt}
+        cost3, un3, un7 = rel("cost", "S3"), rel("unmet", "S3"), rel("unmet", "S7")
+        N.add("tune val days", int(pd.read_csv(tune_f).days.max()), 0)
+        N.add("tune seeds", len(sel["seeds"]), 0)
+        N.add("tune cost reduction max", -min(cost3.values()), 1)
+        N.add("tune unmet increase min S3", min(un3.values()), 0, rnd="down")
+        N.add("tune unmet increase max S3", max(un3.values()), 0, rnd="up")
+        N.add("tune unmet increase min S7", min(un7.values()), 0, rnd="down")
+        N.add("tune unmet increase max S7", max(un7.values()), 0, rnd="up")
+        C.add("tune_llf_selected", sel["selected"] == "A" and sel["disaggregation"] == "llf", json.dumps(sel["J"]))
+        C.add("tune_plan_cheaper_S3", any(v < 0 for v in cost3.values()), json.dumps(cost3))
+        C.add("tune_plan_more_unmet", all(v > 0 for v in [*un3.values(), *un7.values()]),
+              json.dumps({"S3": un3, "S7": un7}))
     N.add("eval days", int(d.episode.nunique()), 0)
     N.add("train seeds", int(len(list((art / "runs").glob("nested_residential_ieee33_none_s*")))), 0)
     N.add("train episodes", int(cfg["training"]["episodes"]), 0)
+    N.add("aux seeds", int(len(list((art / "runs").glob("nested_residential_ieee33_no_l1_s*")))), 0)
     hh = cfg["aggregators"]["households"]
     if hh:
         for sc, spec in cfg["evaluation"]["scenarios"].items():      # penetration = EVs / households

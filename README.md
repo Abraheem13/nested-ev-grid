@@ -8,7 +8,7 @@ Transactions on Sustainable Energy).
 
 ```bash
 pip install -r requirements.txt
-python reproduce.py --jobs 8        # data -> tests -> training -> tariff calibration -> evaluation -> paper
+python reproduce.py --jobs 8        # data -> tests -> model selection -> training -> calibration -> evaluation -> paper
 ```
 
 `reproduce.py` is resumable (finished jobs are skipped, interrupted training
@@ -29,6 +29,7 @@ paper is compiled and checked automatically (`scripts/check_paper.py`).
 | `src/nflev/baselines/` | Uncoordinated, TOU timer, price-aware heuristic, perfect-foresight MPC LP-OPF, flat DDPG, PPO-Lagrangian, CPO, hierarchical RL |
 | `src/nflev/eval/` | Paired evaluation on held-out days, statistics, tables, figures, number macros, data-checked claims |
 | `configs/base.yaml` | Every parameter of the study (read by the code; nothing decorative) |
+| `TUNING.md`, `scripts/tune.py` | Pre-registered model selection on 30 held-out 2023 days (allocation and residual-penalty candidates) and its result |
 | `paper/` | LaTeX sources; `paper/generated/` is written by `reproduce.py`; `REFERENCES_VERIFICATION.md` documents how every reference was verified |
 | `artifacts/` | Trained policies, training logs, per-episode evaluation logs, provenance |
 | `tests/` | Power flow, data integrity, feasibility, energy accounting, Level 3, training-pipeline tests |

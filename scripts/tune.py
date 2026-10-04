@@ -6,7 +6,8 @@
 For every candidate and seed: train the nested controller, calibrate its tariff
 on training days, and evaluate it on the validation days under S3 and S7.
 Resumable (finished steps are skipped). Writes artifacts/tuning/summary.csv and
-artifacts/tuning/selected.json; it does not touch configs/base.yaml.
+artifacts/tuning/selected.json; it does not touch configs/base.yaml. After selection, the final policies are
+trained on all training-year days (configs/base.yaml: data.val_days = 0).
 """
 import argparse
 import copy
@@ -31,12 +32,14 @@ CANDIDATES = {                      # id: (disaggregation, residual_penalty)  --
 SEEDS = (100, 101)
 SCENARIOS = ("S3", "S7")
 TIE = 0.002
+VAL_DAYS = 30
 
 
 def candidate_config(cid: str) -> pathlib.Path:
     cfg = yaml.safe_load(open(ROOT / "configs" / "base.yaml"))
     c = copy.deepcopy(cfg)
     c["level2"]["disaggregation"], c["level2"]["residual_penalty"] = CANDIDATES[cid]
+    c["data"]["val_days"] = VAL_DAYS                       # held out from training for selection
     d = OUT / cid
     d.mkdir(parents=True, exist_ok=True)
     p = d / "config.yaml"

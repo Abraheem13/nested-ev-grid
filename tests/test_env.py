@@ -260,9 +260,13 @@ def test_plan_allocation_executes_plan_and_serves_urgent_first():
 
 def test_validation_days_are_held_out_of_training():
     from nflev.env.episode import _days
-    tr, va = _days(CFG, "train", "residential", 24), _days(CFG, "val", "residential", 24)
-    assert len(va) == CFG["data"]["val_days"] and not set(tr) & set(va)
-    assert len(tr) + len(va) == len(_days({**CFG, "data": {**CFG["data"], "val_days": 0}}, "train", "residential", 24))
+    cfg = {**CFG, "data": {**CFG["data"], "val_days": 30}}
+    tr, va = _days(cfg, "train", "residential", 24), _days(cfg, "val", "residential", 24)
+    assert len(va) == 30 and not set(tr) & set(va)
+    full = _days({**CFG, "data": {**CFG["data"], "val_days": 0}}, "train", "residential", 24)
+    assert len(tr) + len(va) == len(full) and set(tr) | set(va) == set(full)
+    with pytest.raises(ValueError):                 # no validation days unless requested
+        _days({**CFG, "data": {**CFG["data"], "val_days": 0}}, "val", "residential", 24)
 
 
 def test_residual_penalty_pulls_actor_to_plan():

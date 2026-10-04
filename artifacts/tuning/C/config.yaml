@@ -1,0 +1,174 @@
+seed: 0
+simulation:
+  resolution_s: 60
+  dispatch_interval_s: 900
+  pricing_interval_s: 3600
+  episode_hours: 24
+  load_noise_sigma: 0.02
+  price_lookahead_h: 12
+network:
+  substation_vm_pu: 1.03
+  base_load_scale: null
+voltage:
+  v_min: 0.95
+  v_critical: 0.9
+  correction_margin: 0.001
+  max_correction_iters: 8
+  max_fallback_iters: 12
+reactive_power:
+  s_rated_kva: 12.0
+  charger_p_max_kw: 11.0
+  charger_efficiency: 0.95
+  curtailment_fallback: true
+  curtailment_step: 0.2
+aggregators:
+  n: 5
+  shares:
+  - 0.18
+  - 0.18
+  - 0.19
+  - 0.19
+  - 0.26
+  transformer_cap_kw: 500
+  households: 300
+  buses:
+    ieee33:
+    - 6
+    - 12
+    - 18
+    - 25
+    - 30
+    ieee69:
+    - 9
+    - 21
+    - 35
+    - 49
+    - 61
+retail:
+  price_floor: 0.05
+  price_ceil: 0.4
+  min_corridor_width: 0.02
+  max_corridor_width: 0.2
+  flat_price: 0.2
+behavior:
+  lambda_ref: 0.2
+  w_cost:
+  - 5.0
+  - 1.0
+  w_norm:
+  - 2.0
+  - 0.5
+  bias:
+  - 0.0
+  - 0.5
+  social_floor: 0.3
+  deadline_override: 0.7
+fleets:
+  residential:
+    arrival_mu_h: 18.0
+    arrival_sigma_h: 2.0
+    arrival_min_h: 12.0
+    arrival_max_h: 23.5
+    dwell_mu_h: 12.0
+    dwell_sigma_h: 3.0
+    dwell_min_h: 2.0
+    dwell_max_h: 16.0
+    soc_init_mu: 0.35
+    soc_init_sigma: 0.15
+    soc_target_mu: 0.85
+    soc_target_sigma: 0.1
+data:
+  train_years:
+  - 2023
+  test_years:
+  - 2024
+  alt_regime_years:
+  - 2019
+  val_days: 30
+level1:
+  reward:
+    cost: 1.0
+    vdef: 50.0
+    vind: 10.0
+    unmet: 5.0
+    curt: 0.5
+level2:
+  deadline_guard: true
+  disaggregation: plan
+  shared: true
+  prior: residual
+  residual_scale: 0.1
+  residual_init: true
+  residual_penalty: 0.25
+  reward:
+    mode: cost
+    margin: 1.0
+    unmet: 2.0
+    urgency: 0.5
+    curt: 0.5
+  revenue_neutral:
+    enabled: true
+    w_init: 0.0
+    kp: 2.0
+    ki: 0.05
+    ema: 0.2
+    w_min: -2.0
+    w_max: 2.0
+training:
+  episodes: 600
+  checkpoint_every: 50
+  snapshot_every: 100
+  ppo:
+    lr: 0.0003
+    gamma: 0.99
+    gae_lambda: 0.95
+    clip: 0.2
+    epochs: 10
+    entropy: 0.001
+  ddpg:
+    lr_actor: 0.0001
+    lr_critic: 0.001
+    tau: 0.005
+    batch: 128
+    buffer: 200000
+    gamma: 0.999
+    noise_start: 0.3
+    noise_end: 0.05
+    noise_decay: 0.995
+    warmup: 1000
+curriculum:
+  window: 20
+  sq_min: 0.95
+  curt_max_kwh: 20.0
+  stages:
+  - n_ev: 60
+  - n_ev: 120
+  - n_ev: 180
+  - n_ev: 240
+  - n_ev: 300
+  - n_ev_range:
+    - 120
+    - 300
+evaluation:
+  episodes: 50
+  seed_base: 7000
+  scenarios:
+    S1:
+      n_ev: 120
+    S2:
+      n_ev: 200
+    S3:
+      n_ev: 240
+    S4:
+      n_ev: 240
+      forecast_error_sigma: 0.15
+    S5:
+      n_ev: 300
+    S6:
+      n_ev: 240
+      force_zero_charging_window:
+      - 19
+      - 20
+    S7:
+      n_ev: 360
+      s_rated_derate: 0.5

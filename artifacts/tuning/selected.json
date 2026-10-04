@@ -1,0 +1,22 @@
+{
+  "selected": "A",
+  "disaggregation": "llf",
+  "residual_penalty": 0.0,
+  "J": {
+    "A": 1974.1363492813307,
+    "B": 2036.70985059858,
+    "C": 2017.5300445895937,
+    "D": 2114.8090219757505
+  },
+  "eligible": {
+    "A": true,
+    "B": true,
+    "C": true,
+    "D": true
+  },
+  "seeds": [
+    100,
+    101
+  ],
+  "protocol": "TUNING.md"
+}

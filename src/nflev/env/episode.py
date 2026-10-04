@@ -47,10 +47,12 @@ def _days(cfg: dict, split: str, fleet: str, horizon_h: int) -> list[pd.Timestam
              "test": cfg["data"]["test_years"], "alt": cfg["data"]["alt_regime_years"]}[split]
     look = cfg["simulation"]["price_lookahead_h"]
     days = candidate_days(years, horizon_h + look, F.EPISODE_START_HOUR[fleet])
-    n_val = int(cfg["data"].get("val_days", 0))
-    if split in ("train", "val") and n_val > 0:
+    if split in ("train", "val"):
+        n_val = int(cfg["data"].get("val_days", 0))
         held = set(np.random.default_rng(VAL_PERMUTATION_SEED).permutation(len(days))[:n_val].tolist())
         days = [d for i, d in enumerate(days) if (i in held) == (split == "val")]
+        if not days:
+            raise ValueError(f"no {split} days (data.val_days = {n_val})")
     return days
 
 
