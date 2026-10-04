@@ -14,7 +14,7 @@ least-laxity-first allocation with a deadline guard (feasible by
 construction). Level 3 (non-parametric) is part of the environment.
 
 Ablations: none | no_l1 | flat_timescale | no_behavior | no_l3 | no_curriculum |
-           no_guard | proportional (proportional instead of LLF disaggregation) |
+           no_guard | proportional (proportional disaggregation) | llf (least-laxity-first disaggregation) |
            no_prior (direct set point, no planning prior)
 """
 from __future__ import annotations
@@ -35,7 +35,7 @@ from .common import (Curriculum, HourAccumulator, RetailMultiplier, TrainLog, Tr
                      noise_schedule, voltage_penalty)
 
 ABLATIONS = ("none", "no_l1", "flat_timescale", "no_behavior", "no_l3", "no_curriculum",
-             "no_guard", "proportional", "no_prior")
+             "no_guard", "proportional", "no_prior", "llf")
 
 
 def ablated_cfg(cfg: dict, ablation: str) -> dict:
@@ -44,6 +44,8 @@ def ablated_cfg(cfg: dict, ablation: str) -> dict:
         c["level2"]["deadline_guard"] = False
     if ablation == "proportional":
         c["level2"]["disaggregation"] = "proportional"
+    if ablation == "llf":
+        c["level2"]["disaggregation"] = "llf"
     if ablation == "no_prior":
         c["level2"]["prior"] = "none"
     return c
@@ -118,7 +120,8 @@ class NestedController:
     def state_dict(self) -> dict:
         l2 = [self.l2[0].state_dict()] if self.shared else [ag.state_dict() for ag in self.l2]
         return {"l1": self.l1.state_dict(), "l2": l2, "ablation": self.ablation, "shared": self.shared,
-                "prior": self.cfg["level2"].get("prior", "none"), "residual_scale": self.rho}
+                "prior": self.cfg["level2"].get("prior", "none"), "residual_scale": self.rho,
+                "disaggregation": self.cfg["level2"].get("disaggregation", "llf")}
 
     def load_state_dict(self, sd: dict) -> None:
         self.l1.load_state_dict(sd["l1"])
@@ -223,6 +226,8 @@ def load_nested(path: pathlib.Path, cfg: dict) -> NestedController:
     c["level2"]["shared"] = sd.get("shared", False)
     c["level2"]["prior"] = sd.get("prior", "none")
     c["level2"]["residual_scale"] = sd.get("residual_scale", 1.0)
+    if "disaggregation" in sd:                  # evaluate with the allocation the policy was trained with
+        c["level2"]["disaggregation"] = sd["disaggregation"]
     ctl = NestedController(c, cfg["aggregators"]["n"], 0, sd["ablation"])
     ctl.load_state_dict(sd)
     ctl.explore = False

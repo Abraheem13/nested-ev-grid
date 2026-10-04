@@ -31,7 +31,8 @@ import time
 ROOT = pathlib.Path(__file__).resolve().parent
 ART = ROOT / "artifacts"
 PY = sys.executable
-SEEDS = [0, 1, 2]
+SEEDS = [0, 1, 2, 3, 4]          # main comparison (nested and learned baselines)
+N_AUX_SEEDS = 3                  # ablations and generalization use the first three
 ABLATIONS = ["no_prior", "no_l1", "flat_timescale", "no_behavior", "no_l3", "no_curriculum", "no_guard",
              "proportional"]
 LEARNED_BASELINES = ["flat_ddpg", "ppo_lag", "cpo", "hrl"]
@@ -46,7 +47,9 @@ def run_dir(method, fleet, network, ablation, seed):
 def train_jobs(seeds, episodes):
     jobs = []
 
-    def add(method, fleet="residential", network="ieee33", ablation="none"):
+    aux = seeds[:N_AUX_SEEDS]
+
+    def add(method, fleet="residential", network="ieee33", ablation="none", seeds=seeds):
         for s in seeds:
             out = run_dir(method, fleet, network, ablation, s)
             cmd = [PY, "scripts/train.py", "--method", method, "--fleet", fleet, "--network", network,
@@ -57,10 +60,10 @@ def train_jobs(seeds, episodes):
 
     add("nested")
     for ab in ABLATIONS:
-        add("nested", ablation=ab)
-    add("nested", network="ieee69")
-    add("nested", fleet="acn_caltech")
-    add("nested", fleet="acn_jpl")
+        add("nested", ablation=ab, seeds=aux)
+    add("nested", network="ieee69", seeds=aux)
+    add("nested", fleet="acn_caltech", seeds=aux)
+    add("nested", fleet="acn_jpl", seeds=aux)
     for m in LEARNED_BASELINES:
         add(m)
     return jobs
@@ -119,7 +122,8 @@ def eval_jobs(seeds, episodes):
         for s in seeds:
             for m in ("nested-flatprice", "nested-planprice"):
                 add(m, sc, ckpt=nested_ckpt(s), seed=s, variant="decomp")
-    for s in seeds:                                            # ablations on S3 and S5
+    aux = seeds[:N_AUX_SEEDS]
+    for s in aux:                                              # ablations on S3 and S5
         add("nested-noL3", "S3", ckpt=nested_ckpt(s), seed=s, variant="ablation")
         for ab in ABLATIONS:
             for sc in ("S3", "S5"):
@@ -129,7 +133,7 @@ def eval_jobs(seeds, episodes):
         for r in RULES:
             add(r, "S3", fleet, network, variant="general")
             add(r + "+L3", "S3", fleet, network, variant="general")
-        for s in seeds:
+        for s in aux:
             add("nested", "S3", fleet, network, ckpt=nested_ckpt(s, fleet, network), seed=s, variant="general")
     add("uncoordinated", "S3", split="alt", variant="regime")  # pre-crisis price regime (2019)
     for r in RULES:
