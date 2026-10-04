@@ -1,0 +1,11 @@
+{
+  "method": "flat_ddpg",
+  "fleet": "residential",
+  "network": "ieee33",
+  "seed": 3,
+  "ablation": "none",
+  "episodes": null,
+  "config": "/home/user/nested-ev-grid/configs/base.yaml",
+  "out": "/home/user/nested-ev-grid/artifacts/runs/flat_ddpg_residential_ieee33_none_s3",
+  "wall_s": 539.9239795207977
+}

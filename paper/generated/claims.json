@@ -1,15 +1,15 @@
 {
   "nested_zero_viol_main": {
     "holds": false,
-    "detail": "max 0.006944444444444443"
+    "detail": "max 0.004166666666666667"
   },
   "nested_cheapest_learned_main": {
     "holds": true,
-    "detail": "{\"S1\": 13.19, \"S2\": 13.23, \"S3\": 12.94, \"S4\": 13.02, \"S5\": 12.72}"
+    "detail": "{\"S1\": 13.44, \"S2\": 13.13, \"S3\": 12.98, \"S4\": 13.07, \"S5\": 12.63}"
   },
   "nested_cheaper_than_unc_main": {
     "holds": true,
-    "detail": "{\"S1\": 30.75, \"S2\": 30.79, \"S3\": 30.67, \"S4\": 30.95, \"S5\": 30.53}"
+    "detail": "{\"S1\": 30.7, \"S2\": 30.8, \"S3\": 30.75, \"S4\": 31.01, \"S5\": 30.6}"
   },
   "nested_cheaper_than_tou_main": {
     "holds": true,
@@ -17,19 +17,19 @@
   },
   "nested_cheaper_than_pa_main": {
     "holds": false,
-    "detail": "{\"S1\": 3.68, \"S2\": 3.97, \"S3\": 4.18, \"S4\": 4.1, \"S5\": 4.38}"
+    "detail": "{\"S1\": 3.75, \"S2\": 3.96, \"S3\": 4.07, \"S4\": 4.02, \"S5\": 4.28}"
   },
   "nested_above_lp_main": {
     "holds": true,
-    "detail": "{\"S1\": 5.02, \"S2\": 5.27, \"S3\": 5.51, \"S4\": 5.44, \"S5\": 5.47}"
+    "detail": "{\"S1\": 5.09, \"S2\": 5.25, \"S3\": 5.39, \"S4\": 5.35, \"S5\": 5.37}"
   },
   "nested_revenue_neutral_main": {
     "holds": true,
-    "detail": "{\"S1\": 0.206, \"S2\": 0.203, \"S3\": 0.202, \"S4\": 0.203, \"S5\": 0.201}"
+    "detail": "{\"S1\": 0.201, \"S2\": 0.201, \"S3\": 0.201, \"S4\": 0.201, \"S5\": 0.201}"
   },
   "nested_retail_below_ref_main": {
     "holds": false,
-    "detail": "{\"S1\": 0.206, \"S2\": 0.203, \"S3\": 0.202, \"S4\": 0.203, \"S5\": 0.201}"
+    "detail": "{\"S1\": 0.201, \"S2\": 0.201, \"S3\": 0.201, \"S4\": 0.201, \"S5\": 0.201}"
   },
   "lp_cheapest_S1": {
     "holds": true,
@@ -73,7 +73,7 @@
   },
   "pa_cheaper_than_nested_all_main": {
     "holds": true,
-    "detail": "{\"S1\": 3.68, \"S2\": 3.97, \"S3\": 4.18, \"S4\": 4.1, \"S5\": 4.38}"
+    "detail": "{\"S1\": 3.75, \"S2\": 3.96, \"S3\": 4.07, \"S4\": 4.02, \"S5\": 4.28}"
   },
   "tou_violates_main": {
     "holds": true,
@@ -117,7 +117,7 @@
   },
   "l3_zero_viol_learned_main": {
     "holds": false,
-    "detail": "max 0.0009259259259259254"
+    "detail": "max 0.0008333333333333328"
   },
   "learned_noL3_violate": {
     "holds": true,
@@ -125,15 +125,15 @@
   },
   "nested_sig_costlier_than_price_aware_L3_S3": {
     "holds": true,
-    "detail": "diff 25.9, p 2.84e-14"
+    "detail": "diff 25.2, p 2.84e-14"
   },
   "nested_sig_costlier_than_lp_opf_L3_S3": {
     "holds": true,
-    "detail": "diff 33.7, p 2.84e-14"
+    "detail": "diff 33.0, p 2.84e-14"
   },
   "nested_sig_cheaper_than_uncoordinated_S3": {
     "holds": true,
-    "detail": "diff -285.7, p 2.84e-14"
+    "detail": "diff -286.4, p 2.84e-14"
   },
   "nested_sig_cheaper_all_learned_S3": {
     "holds": true,
@@ -400,7 +400,7 @@
     "detail": ""
   },
   "decomp_nested_less_unmet_than_plan_S7": {
-    "holds": true,
+    "holds": false,
     "detail": ""
   },
   "plan_less_unmet_than_pa_S7": {
@@ -421,7 +421,7 @@
   },
   "sens_smaller_rating_more_curtailment": {
     "holds": true,
-    "detail": "4.7 > 0.6 > 0.1"
+    "detail": "3.9 > 0.4 > 0.0"
   },
   "sens_cost_insensitive": {
     "holds": true,
@@ -449,7 +449,7 @@
   },
   "nested_less_curtailment_than_pa_S5": {
     "holds": true,
-    "detail": "1.7 vs 3.1"
+    "detail": "1.0 vs 3.1"
   },
   "nested_fewer_viol_than_pa_S5": {
     "holds": false,
@@ -457,31 +457,31 @@
   },
   "nested_higher_sq_than_pa_S5": {
     "holds": true,
-    "detail": "0.9971 vs 0.9951"
+    "detail": "0.9969 vs 0.9951"
   },
   "nested_cheaper_than_pa_S5": {
     "holds": false,
-    "detail": "806.6 vs 772.8"
+    "detail": "805.9 vs 772.8"
   },
   "pa_cheaper_than_nested_S5": {
     "holds": true,
-    "detail": "772.8 vs 806.6"
+    "detail": "772.8 vs 805.9"
   },
   "nested_less_unmet_than_pa_S5": {
     "holds": true,
-    "detail": "29.5 vs 49.9"
+    "detail": "31.2 vs 49.9"
   },
   "nested_less_curtailment_than_pa_S7": {
     "holds": true,
-    "detail": "59.5 vs 139.4"
+    "detail": "45.7 vs 139.4"
   },
   "nested_fewer_viol_than_pa_S7": {
     "holds": true,
-    "detail": "0.016 vs 0.157"
+    "detail": "0.012 vs 0.157"
   },
   "nested_higher_sq_than_pa_S7": {
     "holds": true,
-    "detail": "0.9971 vs 0.9915"
+    "detail": "0.9969 vs 0.9915"
   },
   "nested_cheaper_than_pa_S7": {
     "holds": false,
@@ -493,6 +493,18 @@
   },
   "nested_less_unmet_than_pa_S7": {
     "holds": true,
-    "detail": "35.8 vs 106.1"
+    "detail": "38.2 vs 106.1"
+  },
+  "tune_llf_selected": {
+    "holds": true,
+    "detail": "{\"A\": 1974.1363492813307, \"B\": 2036.70985059858, \"C\": 2017.5300445895937, \"D\": 2114.8090219757505}"
+  },
+  "tune_plan_cheaper_S3": {
+    "holds": true,
+    "detail": "{\"B\": -0.4222916577496516, \"C\": -1.2717763056105724, \"D\": -0.8236698049857938}"
+  },
+  "tune_plan_more_unmet": {
+    "holds": true,
+    "detail": "{\"S3\": {\"B\": 38.66351821761078, \"C\": 23.997465060699994, \"D\": 88.98715601897126}, \"S7\": {\"B\": 59.401499060114915, \"C\": 39.49676920240319, \"D\": 102.54907052118338}}"
   }
 }
