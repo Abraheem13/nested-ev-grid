@@ -91,6 +91,7 @@ class ChargingEnv:
         self.q_nom = self.net.q_load_mvar * self.scale
         self._unmet_acc = np.zeros(self.n_agg)
         self._prior_cache = (-1, None)
+        self._plan_cache = (-1, {})
         self.price_offset = 0.0
         self._update_connections(0.0)
         self.last_res = self.pf.solve(self.p_nom * spec.load_actual[0], self.q_nom * spec.load_actual[0],
@@ -180,8 +181,9 @@ class ChargingEnv:
             kind, a, _ = self.actions.get(k, ("rate", {}, 0.0))
             if kind == "agg":
                 lax = laxity_h(self.dep[mem] - t0, need[mem], self.p_max, self.eff)
+                planned = np.isin(mem, self.plan_set(k)) if self.disagg == "plan" else None
                 rates, self.applied_u[k] = llf_allocate(a, cap, lax, self.p_cap, self.interval_h,
-                                                        self.guard, self.disagg)
+                                                        self.guard, self.disagg, planned)
             else:
                 req = np.array([a.get(int(i), 0.0) for i in mem])
                 rates = project(req, cap, self.p_cap)
@@ -279,6 +281,14 @@ class ChargingEnv:
                 chosen.append(int(i))
         return np.asarray(chosen, int)
 
+    def plan_set(self, k: int) -> np.ndarray:
+        """price_plan(k), cached per simulation step."""
+        if self._plan_cache[0] != self.t_step:
+            self._plan_cache = (self.t_step, {})
+        if k not in self._plan_cache[1]:
+            self._plan_cache[1][k] = self.price_plan(k)
+        return self._plan_cache[1][k]
+
     def prior_u(self, k: int) -> float:
         """Aggregate set point (fraction of available power, as in
         `llf_allocate`) that the cheapest-slot plan dispatches now."""
@@ -289,7 +299,7 @@ class ChargingEnv:
             u = np.zeros(self.n_agg)
             for j in range(self.n_agg):
                 avail = min(self.p_cap, float(cap[live & (self.agg == j)].sum()))
-                plan = self.price_plan(j)
+                plan = self.plan_set(j)
                 u[j] = min(1.0, float(cap[plan].sum()) / avail) if avail > 0 and len(plan) else 0.0
             self._prior_cache = (self.t_step, u)
         return float(self._prior_cache[1][k])

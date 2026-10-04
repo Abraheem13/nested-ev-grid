@@ -63,11 +63,13 @@ class NestedController:
         self.rho = float(cfg["level2"].get("residual_scale", 1.0))
         self.l1 = PPOAgent(cfg, L1_OBS_DIM, 2)
         z = self.residual and bool(cfg["level2"].get("residual_init", True))
+        beta = float(cfg["level2"].get("residual_penalty", 0.0)) if self.residual else 0.0
         if self.shared:      # one actor-critic for all aggregators, aggregator id one-hot in the state
-            agent = DDPGAgent(cfg, L2_OBS_DIM + n_agg, 2, seed * 100, zero_init=z)
+            agent = DDPGAgent(cfg, L2_OBS_DIM + n_agg, 2, seed * 100, zero_init=z, residual_penalty=beta)
             self.l2 = [agent] * n_agg
         else:
-            self.l2 = [DDPGAgent(cfg, L2_OBS_DIM, 2, seed * 100 + k, zero_init=z) for k in range(n_agg)]
+            self.l2 = [DDPGAgent(cfg, L2_OBS_DIM, 2, seed * 100 + k, zero_init=z, residual_penalty=beta)
+                       for k in range(n_agg)]
         self.explore = False
 
     def l2_input(self, env, k: int) -> np.ndarray:

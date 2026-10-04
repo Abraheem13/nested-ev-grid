@@ -240,3 +240,44 @@ def test_gaussian_policy_stays_valid_for_extreme_log_std():
         pi.log_std.copy_(torch.tensor([float("inf"), -float("inf"), 0.0]))
     d = pi.dist(torch.zeros(2, 4))
     assert torch.isfinite(d.stddev).all() and (d.stddev > 0).all()
+
+
+def test_plan_allocation_executes_plan_and_serves_urgent_first():
+    cap = np.array([11.0, 11.0, 11.0, 11.0])
+    lax = np.array([5.0, 0.1, 3.0, 8.0])            # vehicle 1 is urgent (laxity < 0.25 h)
+    planned = np.array([False, True, False, True])
+    avail = cap.sum()
+    # u = u0 (power of the planned vehicles) executes exactly the plan
+    rates, _ = llf_allocate(cap[planned].sum() / avail, cap, lax, 1e9, 0.25, True, "plan", planned)
+    assert np.allclose(rates, cap * planned)
+    # least-laxity-first would serve vehicle 2 (laxity 3) before planned vehicle 3
+    rates_llf, _ = llf_allocate(cap[planned].sum() / avail, cap, lax, 1e9, 0.25, True, "llf")
+    assert rates_llf[2] > 0 and rates_llf[3] == 0
+    # the urgent vehicle is served first even when it is not planned and u is small
+    rates, _ = llf_allocate(0.25, cap, lax, 1e9, 0.25, True, "plan", np.array([True, False, True, True]))
+    assert rates[1] == pytest.approx(11.0) and rates.sum() == pytest.approx(11.0)
+
+
+def test_validation_days_are_held_out_of_training():
+    from nflev.env.episode import _days
+    tr, va = _days(CFG, "train", "residential", 24), _days(CFG, "val", "residential", 24)
+    assert len(va) == CFG["data"]["val_days"] and not set(tr) & set(va)
+    assert len(tr) + len(va) == len(_days({**CFG, "data": {**CFG["data"], "val_days": 0}}, "train", "residential", 24))
+
+
+def test_residual_penalty_pulls_actor_to_plan():
+    import torch
+    from nflev.agents.ddpg import DDPGAgent
+    torch.manual_seed(0)
+    ag = DDPGAgent(CFG, 4, 2, seed=0, zero_init=True, residual_penalty=100.0)
+    with torch.no_grad():                            # start far from the plan
+        ag.actor[-2].bias.fill_(2.0)
+    rng = np.random.default_rng(0)
+    for _ in range(ag.warmup + ag.batch):
+        ag.store(rng.random(4).astype(np.float32), rng.random(2).astype(np.float32), 0.0,
+                 rng.random(4).astype(np.float32), False)
+    a0 = float(ag.act(np.zeros(4, np.float32), explore=False)[0])
+    for _ in range(200):
+        ag.update()
+    a1 = float(ag.act(np.zeros(4, np.float32), explore=False)[0])
+    assert abs(a1 - 0.5) < abs(a0 - 0.5) / 2
