@@ -417,7 +417,7 @@ def figures(s, d, art, out):
     import matplotlib.pyplot as plt
     plt.rcParams.update({"font.size": 7.5, "font.family": "serif", "pdf.fonttype": 42, "axes.linewidth": 0.6,
                          "axes.edgecolor": "#52514e", "xtick.color": "#52514e", "ytick.color": "#52514e"})
-    fig, axes = plt.subplots(1, 2, figsize=(7.16, 2.35), gridspec_kw={"width_ratios": [1.25, 1]})
+    fig, axes = plt.subplots(1, 2, figsize=(7.16, 2.0), gridspec_kw={"width_ratios": [1.25, 1]})
     x = np.array([p for _, p in PEN])
 
     def line(ax, m, metric, lw=1.1):
@@ -480,9 +480,9 @@ def figures(s, d, art, out):
             if lab not in labels:
                 handles.append(h)
                 labels.append(lab)
-    fig.legend(handles, labels, loc="lower center", ncol=5, frameon=False, fontsize=6.5,
-               bbox_to_anchor=(0.5, -0.02), handlelength=2.6)
-    fig.tight_layout(rect=(0, 0.17, 1, 1))
+    fig.legend(handles, labels, loc="lower center", ncol=len(labels), frameon=False, fontsize=6.5,
+               bbox_to_anchor=(0.5, -0.02), handlelength=2.2, columnspacing=1.0)
+    fig.tight_layout(rect=(0, 0.1, 1, 1))
     fig.savefig(out / "fig_scenarios.pdf", bbox_inches="tight")
     plt.close(fig)
 

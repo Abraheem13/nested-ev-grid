@@ -1,23 +1,20 @@
 \subsection{What the learned levels add}
 \label{sec:disc-learning}
-The results do not support the claim that learning lowers the energy bill
-relative to a well-designed rule: at nominal load the price-aware heuristic,
-which executes the Level-2 plan per vehicle, is cheaper than the nested
-controller,% claim: pa_cheaper_than_nested_all_main
-\ and Table~\ref{tab:decomp} shows that neither the learned prices nor the
-learned dispatch reduce cost relative to the plan at S3.% claim: decomp_nested_planprice_costlier_than_plan_S3
+At nominal load, learning does not lower the energy bill relative to a
+well-designed rule: the price-aware heuristic, which executes the Level-2 plan
+per vehicle, is cheaper than the nested controller,% claim: pa_cheaper_than_nested_all_main
+\ and neither the learned prices nor the learned dispatch reduce cost relative
+to the plan (Table~\ref{tab:decomp}).% claim: decomp_nested_planprice_costlier_than_plan_S3
 % claim: decomp_nested_flatprice_costlier_than_plan_S3
-\ What the learned dispatch does provide is a margin: it spreads charging away
-from the very cheapest slots, which keeps voltages further from the floor and
-leaves Level~3 more reactive headroom. This is irrelevant on most days and
-decisive on the worst ones, as S7 shows. The planning prior is essential to
-this outcome: learning the same dispatch from scratch is costlier at every
+\ What learned dispatch provides is a margin: spreading charging away from the
+very cheapest slots keeps voltages further from the floor and leaves Level~3
+more headroom, which matters only on the worst days (S7). It needs the plan as
+a starting point: learned from scratch, the same dispatch is costlier at every
 penetration level we tested (Table~\ref{tab:ablation}).% claim: abl_abl_no_prior_costlier_S3
 % claim: abl_abl_no_prior_costlier_S5
-\ We therefore see the nested design less as a way to beat optimization on cost
-than as a way to keep learned components where they help (anticipating grid
-stress and shaping prices) while planning and physics handle what they handle
-well.
+\ We therefore see the nested design not as a way to beat optimization on cost
+but as a way to keep learned components where they help while planning and
+physics handle the rest.
 
 \subsection{Scope of the voltage guarantee}
 Level~3b is corrective control on the simulated quasi-static state, not an a
