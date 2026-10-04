@@ -71,6 +71,13 @@ def check(tex_path: pathlib.Path = PAPER / "main.tex") -> list[str]:
     errs += [f"duplicate bibitem {x}" for x in sorted({x for x in items if items.count(x) > 1})]
     errs += [f"citation without bibitem: {c}" for c in sorted(cites - set(items))]
     errs += [f"bibitem never cited: {b}" for b in sorted(set(items) - cites)]
+    first = []                                   # IEEE: numbered in order of first citation
+    for grp in re.findall(r"\\cite\{([^}]+)\}", tex.split("\\begin{thebibliography}")[0]):
+        first += [k for k in (c.strip() for c in grp.split(",")) if k not in first]
+    for i, (f, b) in enumerate(zip(first, items), 1):
+        if f != b:
+            errs.append(f"bibliography not in citation order: [{i}] is {b}, first cited is {f}")
+            break
     ledger = (PAPER / "REFERENCES_VERIFICATION.md").read_text()
     status = dict(re.findall(r"^\|\s*([A-Za-z0-9_]+)\s*\|\s*\**([A-Z]+)", ledger, re.M))
     for b in items:

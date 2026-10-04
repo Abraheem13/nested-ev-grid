@@ -103,6 +103,12 @@ citation did not support the sentence it was attached to.
   NeurIPS and author pages): no entry was found wrong; the page and article
   numbers of xu2016priority, shi2022stability, orfanoudakis2025 and
   pateria2021 were added, and yu2024safereview now cites its journal version.
+* Characterization check (what each work is cited *for*): singh2013 and
+  mattos2024 support voltage with vehicle-to-grid *active* power, and
+  hu2021dmpc uses reactive power only ("without intervening in the active power
+  exchange"); the related-work sentence was rewritten accordingly. The
+  bibliography is numbered in order of first citation (enforced by
+  `scripts/check_paper.py`).
 * `pecanstreet` is an online resource without an access date: the data were
   obtained through the EV2Gym distribution, not downloaded from Dataport.
 * `scripts/check_paper.py` fails if a cited key is not marked OK or FIXED above.

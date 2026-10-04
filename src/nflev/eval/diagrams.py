@@ -116,7 +116,7 @@ def fig_architecture(out: pathlib.Path) -> None:
     h = {"l1": 0.8, "l2": 1.0, "l3": 0.8}
     _box(ax, (0.05, rows["l1"]), 2.4, h["l1"], "System state (11-d)\nmean voltage, substation $P$, $Q$,\nprice now and 12 h ahead, fleet,\nline and substation loading", "#eef3fb", fs)
     _box(ax, (0.05, rows["l2"]), 2.4, h["l2"], "Aggregator state (28-d)\nbus voltage, time, 12 h of prices,\ncorridor, need by laxity,\nacceptance, plan set point $u^0_k$", "#eef3fb", fs)
-    _box(ax, (0.05, rows["l3"]), 2.4, h["l3"], "Local measurements\nbus voltages, charger power,\nvehicle needs", "#eef3fb", fs)
+    _box(ax, (0.05, rows["l3"]), 2.4, h["l3"], "Measurements\nbus voltages, charger power,\nvehicle needs", "#eef3fb", fs)
     _box(ax, (2.8, rows["l1"]), 3.0, h["l1"], "Level 1: DSO pricing (PPO, 1 h)\nretail corridor $[p^{\\min}_t, p^{\\max}_t]$", "#d6e6f8", fl)
     _box(ax, (2.8, rows["l2"]), 3.0, h["l2"], "Level 2: aggregators (DDPG, 15 min)\nshared actor-critic,\nresidual on the plan $u^0_k$:\nset point $u_k$, execution price $p_k$", "#dceedd", fl)
     _box(ax, (2.8, rows["l3"]), 3.0, h["l3"], "Level 3 (non-parametric)\n3a: price acceptance (15 min)\n3b: reactive correction (60 s)", "#fde6cf", fl)

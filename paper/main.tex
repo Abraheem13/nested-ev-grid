@@ -182,20 +182,18 @@ control~\cite{wang2024safemarl}. Multi-agent DRL also coordinates Volt-VAR
 devices~\cite{gao2021consensus} and active and reactive power~\cite{hu2022voltage},
 and physics-informed graph representations make voltage control robust to bad
 measurements~\cite{cao2024pignn}, in the spirit of physics-informed
-learning~\cite{raissi2019pinn}. Reactive support from EV chargers has been
-studied in~\cite{leemput2015,singh2013,mattos2024} and combined with
-active-power control in~\cite{wang2023coord,hu2021dmpc};
-inverter reactive capability is standardized for distributed energy resources
+learning~\cite{raissi2019pinn}. EV chargers have supported feeder voltage
+with vehicle-to-grid active power~\cite{singh2013,mattos2024}, with reactive
+power~\cite{leemput2015,hu2021dmpc} and with coordinated active and reactive
+control~\cite{wang2023coord}; inverter reactive capability is standardized for distributed energy resources
 in IEEE Std 1547-2018~\cite{ieee1547}.
 
-\emph{Positioning.} Table~\ref{tab:positioning} summarizes the gap. Flat and
-safe RL learn one policy at one rate and handle voltage through rewards or
-expected-cost constraints; optimization handles voltage through a linearized
-model and needs forecasts of all vehicles; hierarchical RL learns several rates
-but still learns safety. Our controller separates the timescales, keeps
-feasibility out of the learning problem, corrects voltage with physics on the
-measured state, and needs only the day-ahead prices and the states of the
-plugged-in vehicles.
+\emph{Positioning.} Table~\ref{tab:positioning} summarizes the gap: flat, safe
+and hierarchical RL learn voltage safety through rewards or constraints, and
+optimization needs a linearized network model and forecasts of all vehicles.
+Our controller separates the timescales, keeps feasibility out of the learning
+problem and corrects voltage with physics on the measured state, using only
+day-ahead prices and the states of the plugged-in vehicles.
 
 \begin{table}[t]
 \centering
@@ -225,8 +223,9 @@ Hier.\ RL~\cite{saner2022,pateria2021} & several & learned & varies & none \\
 We use the IEEE 33-bus~\cite{baran1989} and 69-bus~\cite{baran1989cap} radial
 feeders with the MATPOWER data~\cite{zimmerman2011} (open tie lines removed).
 Five aggregators connect at buses 6, 12, 18, 25 and 30 of the 33-bus feeder
-(9, 21, 35, 49 and 61 on the 69-bus feeder), from electrically strong to weak
-locations (Fig.~\ref{fig:feeder}). Each aggregator serves its vehicles through
+(9, 21, 35, 49 and 61 on the 69-bus feeder), at electrically strong and weak
+locations (Fig.~\ref{fig:feeder}); vehicles are assigned to them at random in
+proportions 0.18, 0.18, 0.19, 0.19 and 0.26. Each aggregator serves its vehicles through
 a \SI{500}{kW} transformer. The substation voltage is held at $1.03\pu$ throughout. With
 constant-power loads the radial AC power-flow equations are
 \begin{equation}
@@ -243,7 +242,7 @@ flow is solved every \SI{60}{s} of simulated time.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.9\columnwidth]{generated/fig_feeder_ieee33.pdf}
+\includegraphics[width=0.8\columnwidth]{generated/fig_feeder_ieee33.pdf}
 \caption{IEEE 33-bus feeder (MATPOWER data, open ties removed) with the five
 aggregator connection points.}
 \label{fig:feeder}
@@ -268,15 +267,17 @@ feeder). The voltage problems studied here are therefore caused by EV charging.
 \emph{Vehicles.} The main experiments use a synthetic residential fleet whose
 parameters are stated assumptions: arrivals $\mathcal{N}(18,2^2)$\,h clipped to
 12:00--23:30, dwell $\mathcal{N}(12,3^2)$\,h clipped to 2--16\,h, initial and
-target state of charge $\mathcal{N}(0.35,0.15^2)$ and $\mathcal{N}(0.85,0.10^2)$,
-batteries of 40--\SI{100}{kWh}, and \SI{11}{kW} chargers with efficiency
+target state of charge $\mathcal{N}(0.35,0.15^2)$ and $\mathcal{N}(0.85,0.10^2)$
+(clipped to $[0.05,0.9]$ and to at least $0.05$ above the initial value),
+batteries of 40, 60, 75 or \SI{100}{kWh} (equally likely), and \SI{11}{kW} chargers with efficiency
 0.95. Episodes run 24\,h from 12:00. For generalization we also use real
 sessions from ACN-Data~\cite{lee2019acn} at Caltech and JPL (bundled with
 SustainGym~\cite{yeh2023sustaingym}): each sampled vehicle keeps a recorded
 session's arrival time, dwell and delivered energy (2019 for training,
-2020--2021 for testing, weekdays, episodes from 06:00). Requests are capped at
-what the charger can deliver during the dwell, so full service is always
-attainable. EV penetration is the number of vehicles per household, with 300
+2020--2021 for testing, weekdays, episodes from 06:00). Departures are
+truncated at the end of the episode and requests capped at what the charger can
+deliver during the dwell, so full service is attainable except for the wait
+(under \SI{15}{min}) for the first dispatch after arrival. EV penetration is the number of vehicles per household, with 300
 households behind the five aggregators.
 
 \subsection{Driver response}
@@ -289,8 +290,8 @@ P^{\mathrm{acc}}_i=\sigma\!\left(w^{\mathrm{c}}_i\frac{\lambda^{\mathrm{ref}}-p_
 with logistic $\sigma$, reference rate $\lambda^{\mathrm{ref}}=\SI{0.20}{\text{\euro}/kWh}$,
 last-interval fleet acceptance $\bar A$ (floored at 0.3) and heterogeneous
 weights $w^{\mathrm{c}}_i\sim\mathcal{N}(5,1)$, $w^{\mathrm{n}}_i\sim\mathcal{N}(2,0.5^2)$,
-$b_i\sim\mathcal{N}(0,0.5^2)$. A driver whose remaining need exceeds 0.7 of what
-the charger can still deliver accepts regardless of price. Acceptance is drawn
+$b_i\sim\mathcal{N}(0,0.5^2)$. A driver whose remaining need exceeds 0.7 times
+the charger rating times the hours to departure accepts regardless of price. Acceptance is drawn
 once per dispatch interval. The model is stylized; Section~\ref{sec:discussion}
 discusses this limitation.
 
@@ -309,24 +310,22 @@ price paid by drivers.
 Fig.~\ref{fig:arch} shows the architecture. Each level is a decision process
 at its own rate whose environment includes the closed-loop behavior of the
 faster levels: Level~1 acts every hour, Level~2 every \SI{15}{min}, Level~3a
-every \SI{15}{min} and Level~3b every \SI{60}{s}. Set points flow down
-(corridor $\rightarrow$ execution price and set point $\rightarrow$ per-vehicle
-rates $\rightarrow$ reactive injections); measurements flow up (voltages, cost,
-curtailment and acceptance enter the states and rewards of the levels above).
+every \SI{15}{min} and Level~3b every \SI{60}{s}.
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=0.92\textwidth]{generated/fig_architecture.pdf}
-\caption{Nested controller. Set points flow down (blue), reactive set points
-are computed locally (orange), and measurements flow back up (red, dashed).}
+\includegraphics[width=0.86\textwidth]{generated/fig_architecture.pdf}
+\caption{Nested controller. Set points flow down (blue), Level~3b computes
+reactive set points from measured voltages (orange), and measurements flow back
+up (red, dashed).}
 \label{fig:arch}
 \end{figure*}
 
 \subsection{Level 1: price corridor (PPO, hourly)}
 The state $s^{(1)}_t\in\mathbb{R}^{11}$ holds the mean bus voltage, the
 substation active and reactive power, the current day-ahead price, the share of
-vehicles plugged in, their mean state of charge, the line-loading margin, the
-substation loading, the hour (sine and cosine) and the mean price over the
+vehicles plugged in, their mean state of charge, the line-loading margin (assumed
+rating \SI{0.4}{kA} per line), the substation loading (assumed \SI{8}{MVA}), the hour (sine and cosine) and the mean price over the
 next 12\,h. The action $a^{(1)}_t\in[0,1]^2$, drawn from Beta distributions,
 sets the centre $c_t$ and width $w_t$ of the corridor
 $[p^{\min}_t,p^{\max}_t]=[c_t-w_t/2,\,c_t+w_t/2]$ (clipped to
@@ -338,8 +337,8 @@ w_t&=w^{\min}+a^{(1)}_{t,2}\,(w^{\max}-w^{\min}),
 \end{align}
 with bounds $p^{\mathrm{lo}}=0.05$, $p^{\mathrm{hi}}=\SI{0.40}{\text{\euro}/kWh}$ and
 widths $w^{\min}=0.02$, $w^{\max}=0.20$. The neutral action $(0.5,0.5)$ centres
-the corridor on the reference rate, so an untrained policy charges the flat
-tariff of the baselines. The reward of hour $t$,
+the corridor on the reference rate, so an untrained policy, whose mean action
+is close to it, charges about the flat tariff of the baselines. The reward of hour $t$,
 \begin{align}
 r^{(1)}_t={}&-\frac{C_t}{100}-50\,(20\,\Delta V_t)^2-10\,\mathbb{1}[\Delta V_t>0]\nonumber\\
 &-5\,\frac{U_t}{100}-0.5\,\frac{X_t}{100}+\omega\,\frac{R_t-\lambda^{\mathrm{ref}}E^{\mathrm{del}}_t}{100},
@@ -356,7 +355,7 @@ policy with clipping 0.2, $\gamma=0.99$ and GAE $\lambda=0.95$.
 holds its bus voltage, the hour, the current price, the day-ahead prices of
 the current and the next 11 hours, the corridor, the number of plugged-in vehicles, their
 remaining energy need (total, and split into four laxity bins), the power they
-can absorb, their mean remaining dwell, the last acceptance rate, and the plan
+can absorb, their mean remaining dwell, the last fleet acceptance rate, and the plan
 set point $u^0_{\tau,k}$ defined below. One actor--critic is shared by the five
 aggregators, with a one-hot aggregator identifier appended to the state
 (parameter sharing~\cite{gupta2017}).
@@ -367,8 +366,9 @@ intervals before departure ($\bar c=\SI{11}{kW}$ charger rating, $\eta=0.95$,
 $\Delta=\SI{15}{min}$); prices beyond the 12\,h look-ahead are
 valued at the mean known price. The plan set point $u^0_{\tau,k}\in[0,1]$ is
 the power of the vehicles whose current interval is selected, as a fraction of
-the power the aggregator can deliver now. The plan needs only the information
-already in the state.
+the power the aggregator can deliver now. The plan uses only information the
+aggregator has: the price look-ahead and the needs and departure times of its
+plugged-in vehicles.
 
 \emph{Action.} The actor outputs $a_{\tau,k}\in[0,1]^2$. The first component
 corrects the plan,
@@ -385,7 +385,7 @@ for the vehicles that accepted the price. The set point dispatches
 $P_{\tau,k}=u_{\tau,k}\min\{P^{\mathrm{cap}}_k,\sum_i\hat c_i\}$, which is
 filled in order of increasing laxity $\ell_i=h_i-e_i/(\eta\bar c)$ ($h_i$:
 hours to departure)~\cite{xu2016priority}. A deadline guard raises $P_{\tau,k}$
-to cover every vehicle with $\ell_i\le\Delta$. Every dispatch therefore lies in
+to cover every vehicle with $\ell_i\le\Delta$, up to the same limit. Every dispatch therefore lies in
 \begin{equation}
 \mathcal{C}_k=\Big\{c:\ 0\le c_i\le\hat c_i,\ \textstyle\sum_i c_i\le P^{\mathrm{cap}}_k\Big\}.
 \label{eq:feasible}
@@ -423,9 +423,11 @@ where $\bar p$ is the mean retail price paid in the episode and the integral
 is clipped against wind-up (gains and bounds in Table~\ref{tab:hyper}). The
 multiplier holds the \emph{training-time} average; the final deterministic
 policy can still sit above or below it. After training we therefore calibrate
-the tariff level: a constant offset added to every execution price is found by
-bisection such that, on ten 2023 training days, the deterministic policy's mean
-retail price paid equals $\lambda^{\mathrm{ref}}$. The same calibration is
+the tariff level: a constant offset added to every execution price (the sum
+clipped to $[p^{\mathrm{lo}},p^{\mathrm{hi}}]$, so it may leave the corridor by up
+to the offset) is found by bisection such that, on ten randomly drawn 2023
+training days, the deterministic policy's mean retail price paid equals
+$\lambda^{\mathrm{ref}}$. The same calibration is
 applied to every learned method, and only training data are used. Prices can
 thus shift charging in time while drivers pay about the reference rate; the
 realized retail prices on the test days are reported with the results.
@@ -433,7 +435,7 @@ realized retail prices on the test days are reported with the results.
 DDPG~\cite{lillicrap2016} trains the actor and critic (256--128--64 units) on
 transitions $(s_\tau,a_\tau,r_\tau,s_{\tau+1})$, where $a_\tau$ is the action
 \emph{actually applied} after the guard, mapped back
-through~\eqref{eq:residual}. The actor's output layer is initialized near zero,
+through~\eqref{eq:residual} and clipped to $[0,1]$. The actor's output layer is initialized near zero,
 so training starts from the plan.
 
 \subsection{Level 3: price acceptance and reactive correction}
@@ -442,23 +444,25 @@ every \SI{60}{s} step (Fig.~\ref{fig:l3}). After the power flow, if
 $\min_n V_n<\vmin+\delta$ (with $\vmin=0.95$ and $\delta=0.001\pu$), the
 plugged-in chargers at aggregator bus $k$ offer the headroom
 \begin{equation}
-\bar Q_k=\sum_{i\in k}\sqrt{S_i^2-P_i^2},\qquad S_i=\SI{12}{kVA}.
+\bar Q_k=\sum_{i\in k}\sqrt{\max\{S_i^2-P_i^2,\,0\}},\qquad S_i=\SI{12}{kVA}.
 \label{eq:qcap}
 \end{equation}
 A charger at $P_i=0$ thus offers its full rating, and curtailing active power
 \emph{increases} reactive headroom. The first injection is proportional to
-the voltage gap, weighted toward the most depressed buses. Each later
-iteration measures the sensitivity $\hat\sigma=\Delta V^{\min}/\Delta Q$
-between the last two power-flow solutions and injects
+the voltage gap (all headroom at a gap of $\vmin+\delta-0.90\pu$), weighted
+toward the most depressed aggregator buses. Each later iteration measures the
+sensitivity $\hat\sigma=\Delta V^{\min}/\Delta Q$ between the last two
+power-flow solutions and, if both rose, injects
 \begin{equation}
 \Delta Q=1.2\,\big(\vmin+\delta-V^{\min}\big)/\hat\sigma,
 \label{eq:newton}
 \end{equation}
-split across buses by voltage depression and capped by the remaining headroom.
+split across buses by voltage depression and capped by the remaining headroom;
+otherwise the proportional step is repeated.
 If no headroom is left, EV power is shed in steps of up to 20\% per iteration,
 most at the most depressed bus, and the flow is re-solved. The loop stops when
-$V^{\min}\ge\vmin+\delta$, or after eight power flows; once curtailment has
-started, up to twelve further power flows let it complete. Because the sensitivity
+$V^{\min}\ge\vmin+\delta$ or after eight corrective power flows, a limit raised
+to twenty once curtailment has started. Because the sensitivity
 is measured on successive AC solutions, the step needs no precomputed network
 model.
 Level~3b does not depend on the policy above it; we therefore also evaluate
@@ -466,7 +470,7 @@ it under every baseline (``+L3'').
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.7\columnwidth]{generated/fig_l3_loop.pdf}
+\includegraphics[width=0.62\columnwidth]{generated/fig_l3_loop.pdf}
 \caption{Level-3b correction inside one \SI{60}{s} step.}
 \label{fig:l3}
 \end{figure}
@@ -496,8 +500,8 @@ from the configuration file.
   \STATE \textbf{if} $V^{\min}<\vmin+\delta$ \textbf{then} Level-3b loop~\eqref{eq:qcap}--\eqref{eq:newton}
   \STATE book drawn energy, cost and curtailment
 \ENDFOR
-\STATE (training) store $(s,a^{\mathrm{applied}},r,s')$ and update the agents
-\STATE (training, end of day) update the multiplier $\omega$ by~\eqref{eq:dual}
+\STATE (training) store $(s,a^{\mathrm{applied}},r,s')$; update the DDPG agent
+\STATE (training, end of day) update the PPO policy and $\omega$ by~\eqref{eq:dual}
 \end{algorithmic}
 \end{algorithm}
 
@@ -515,10 +519,11 @@ from the configuration file.
 \subsection{Scenarios}
 S1, S2, S3 and S5 use 120, 200, 240 and 300 vehicles (40--100\% penetration).
 S4 repeats S3 with a 15\% hourly-persistent base-load forecast
-error. Two stress tests probe Level~3: S6 forbids all charging between 19:00
+error (clipped to $\pm40\%$). Two stress tests probe Level~3: S6 forbids all charging between 19:00
 and 20:00 (a failure mode in which reactive capacity tied to charging power
-would vanish), and S7 has 360 vehicles (120\%) with inverters derated to
-50\%.
+would vanish), and S7 has 360 vehicles (120\%) with the inverter rating halved to
+\SI{6}{kVA}, below the charging power, so a charger drawing more than \SI{6}{kW}
+offers no reactive power.
 
 \subsection{Baselines}
 \emph{Rules.} Uncoordinated charging (full power on arrival); a TOU timer
@@ -531,7 +536,8 @@ day (HiGHS~\cite{huangfu2018}) minimizes energy cost plus a
 \SI{5}{\text{\euro}/kWh} penalty on unmet energy, subject to per-vehicle energy,
 charger and transformer limits and to linearized voltage limits
 ($\ge\vmin+\delta$ at every bus) from finite-difference sensitivities of the
-AC power flow at the forecast operating point. It has \emph{perfect
+AC power flow at the forecast base-load (no-EV) operating point of each
+interval. It has \emph{perfect
 foresight} of prices and of every vehicle's arrival, departure and need. It is
 a strong model-based reference rather than a deployable controller; it is not a
 strict bound, because its voltage model is linearized and drivers may still
@@ -541,8 +547,10 @@ PPO-Lagrangian and CPO~\cite{achiam2017} (expected-cost constraint on
 violations, limit $d=0$), and a goal-conditioned hierarchical RL agent
 (hourly DDPG goals, \SI{15}{min} DDPG workers). They observe the same states,
 including the plan set point, use the same allocation layer, reward terms,
-discount factor and revenue-neutral multiplier, and add a voltage penalty
-because they are trained without Level~3. Each is also evaluated with Level~3
+discount factor and revenue-neutral multiplier, and set execution prices inside
+the neutral corridor. Because they are trained without Level~3, Flat DDPG and
+the hierarchical agent add a voltage penalty to the reward (its workers also a
+goal-tracking term), and PPO-Lagrangian and CPO constrain it as the cost. Each is also evaluated with Level~3
 attached. Uncoordinated charging, the price-aware heuristic and the LP-OPF
 charge the flat reference rate $\lambda^{\mathrm{ref}}$; the TOU timer charges
 its three-tier tariff (0.12, 0.20 and \SI{0.30}{\text{\euro}/kWh} off-peak,
@@ -589,9 +597,8 @@ Household load data were provided by Pecan Street Inc.\ (Dataport).
 \setlength{\parskip}{0.6\baselineskip}
 
 \textbf{Abraheem Rashid} is with the Department of Computer Science, Brunel
-University London, London, U.K. His research interests include nested and
-multi-timescale reinforcement learning and its application to power and energy
-systems.
+University London, London, U.K. His research interests include multi-timescale
+reinforcement learning for power and energy systems.
 
 \textbf{Faisal Iradat} is with the Department of Computer Science, Institute of
 Business Administration, Karachi, Pakistan. His research interests include
