@@ -1,5 +1,5 @@
-"""Regression tests for the v3 environment, data layer and training plumbing.
-Each test pins down one defect found in the v2 code or one modelling claim made
+"""Tests for the environment, data layer and training pipeline.
+Each test pins down one modelling property or one claim made
 in the paper."""
 import pathlib
 import sys
@@ -80,7 +80,7 @@ def test_energy_conservation(policy, q):
 
 
 def test_full_vehicles_draw_nothing():
-    """v2 defect: chargers kept drawing 11 kW into full batteries."""
+    """A vehicle never draws more energy than completes its need."""
     env = ChargingEnv(CFG, "ieee33", q_control=False)
     env.reset(spec(60))
     pol = Uncoordinated()
@@ -134,14 +134,14 @@ def test_level3_holds_floor_where_capacity_suffices():
 
 
 def test_lp_opf_runs_on_the_episode_fleet():
-    """v2 defect: the LP was solved for one random fleet and replayed on another."""
+    """The LP-OPF plans for the same fleet that it is evaluated on."""
     m = run_policy_episode(ChargingEnv(CFG, "ieee33", q_control=False), LPOPF(), spec(60, 1))
     assert m["service_quality"] > 0.97
 
 
 # ------------------------------------------------- DDPG reward alignment
 def test_ddpg_transitions_are_aligned(monkeypatch, tmp_path):
-    """v2 defect: the reward of interval i was stored with the action of i-1."""
+    """The reward of an interval is stored with the action taken in that interval."""
     import nflev.training.trainer as T
     stored = []
     orig_obs = ChargingEnv.l2_obs

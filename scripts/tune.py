@@ -6,8 +6,8 @@
 For every candidate and seed: train the nested controller, calibrate its tariff
 on training days, and evaluate it on the validation days under S3 and S7.
 Resumable (finished steps are skipped). Writes artifacts/tuning/summary.csv and
-artifacts/tuning/selected.json; it does not touch configs/base.yaml. After selection, the final policies are
-trained on all training-year days (configs/base.yaml: data.val_days = 0).
+artifacts/tuning/selected.json; configs/base.yaml is not modified. The final
+policies are trained on all training-year days (data.val_days = 0).
 """
 import argparse
 import copy

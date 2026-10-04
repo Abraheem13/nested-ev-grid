@@ -1,30 +1,32 @@
-# Model-selection protocol (fixed before any candidate was trained)
+# Model selection
 
-The v3.0 results (commit `1ae0ca5`) identified two sources of the nested
-controller's nominal-load cost premium over the price-aware heuristic: the
-least-laxity-first execution of the plan and the learned residual. This round
-tests two remedies. Selection uses **validation days only**; the 2024 test
-set is evaluated once, with the selected configuration, after selection.
+Two design alternatives for Level 2 were screened before the final evaluation:
+a plan-priority allocation (serve each vehicle's planned slots first) and a
+penalty on the learned residual. The protocol below was fixed before any
+candidate was trained. Selection uses validation days only; the 2024 test set
+is evaluated once, with the selected configuration.
 
 ## Data
-* Validation: `data.val_days = 30` days of the training year 2023, drawn by a
-  fixed permutation (`VAL_PERMUTATION_SEED`), removed from training for every
-  method. Calibration (`scripts/calibrate.py`) uses training days only.
-* Conditions: S3 (240 vehicles) and S7 (360 vehicles, inverter rating
-  halved) on all 30 validation days.
+* Validation: 30 days of the training year 2023, drawn by a fixed permutation
+  (`VAL_PERMUTATION_SEED` in `src/nflev/env/episode.py`) and removed from
+  training for every candidate. Tariff calibration uses training days only.
+* Conditions: S3 (240 vehicles) and S7 (360 vehicles, inverter rating halved)
+  on all 30 validation days.
 
-## Candidates (nested controller; all other settings as in `configs/base.yaml`)
-| id | `level2.disaggregation` | `level2.residual_penalty` (beta) |
+## Candidates
+All other settings as in `configs/base.yaml`.
+
+| id | `level2.disaggregation` | `level2.residual_penalty` |
 |---|---|---|
-| A | llf  | 0.0  (v3.0 method) |
-| B | plan | 0.0 |
-| C | plan | 0.25 |
-| D | plan | 1.0 |
+| A | `llf` (least-laxity-first) | 0.0 |
+| B | `plan` | 0.0 |
+| C | `plan` | 0.25 |
+| D | `plan` | 1.0 |
 
-`plan`: urgent vehicles first, then the vehicles whose cheapest-slot plan
+`plan` serves urgent vehicles first, then the vehicles whose cheapest-slot plan
 selects the current interval, then the rest, each group by increasing laxity.
 Each candidate is trained with two seeds (100, 101; disjoint from the test
-seeds 0-4), tariff-calibrated, and evaluated on the validation days.
+seeds 0-4), tariff-calibrated and evaluated on the validation days.
 
 ## Criterion
 For each candidate, averaged over its two seeds and the 30 validation days:
@@ -35,14 +37,7 @@ For each candidate, averaged over its two seeds and the 30 validation days:
 with any S3 validation violation are excluded. The lowest J is selected; if
 two candidates are within 0.2 % of each other, the one listed first wins.
 
-## Outputs
-`scripts/tune.py` runs the protocol and writes
-`artifacts/tuning/summary.csv` and `artifacts/tuning/selected.json`. The
-selected values are then written into `configs/base.yaml`, and the full
-campaign (`reproduce.py`) is re-run, with five training seeds for the main
-comparison.
-
-## Result (run after the protocol above was committed)
+## Result
 Validation means over the two seeds and 30 days (`artifacts/tuning/summary.csv`):
 
 | id | S3 cost | S3 unmet | S7 cost | S7 unmet | S7 curtailed | J |
@@ -52,14 +47,18 @@ Validation means over the two seeds and 30 days (`artifacts/tuning/summary.csv`)
 | C | 713.6 | 29.8 | 1097.9 | 49.4 | 95.4 | 2017.5 |
 | D | 716.9 | 45.4 | 1101.8 | 71.7 | 124.0 | 2114.8 |
 
-No candidate had an S3 validation violation. **A (least-laxity-first, no residual
-penalty) has the lowest J and is retained**: plan-priority allocation lowers
-the S3 energy cost by up to 1.3 % but leaves 24-89 % more energy undelivered at
-S3 and 39-103 % more at S7. Observation (not used for selection): the
-calibrated retail price of B-D on the validation days was 0.207-0.214
-EUR/kWh against 0.199 for A, which lowers acceptance and contributes to their
-higher unmet energy.
+No candidate had an S3 validation violation. Candidate A (least-laxity-first,
+no residual penalty) has the lowest J and is used in the paper: plan-priority
+allocation lowers the S3 energy cost by up to 1.3 % but leaves 24-89 % more
+energy undelivered at S3 and 39-103 % more at S7. The calibrated retail price
+of B-D on the validation days was 0.207-0.214 EUR/kWh against 0.199 EUR/kWh
+for A, which lowers acceptance and contributes to their higher unmet energy
+(an observation, not part of the criterion).
 
-Because A is the existing configuration, the final policies are those of the
-main campaign, trained on all 2023 days (`data.val_days = 0`); seeds 3 and 4
-were added to the main comparison.
+The final policies are trained on all 2023 days (`data.val_days = 0` in
+`configs/base.yaml`).
+
+## Reproduction
+`python scripts/tune.py --jobs 4` runs the protocol (resumable) and writes
+`artifacts/tuning/summary.csv` and `artifacts/tuning/selected.json`;
+`reproduce.py` runs it as one of its stages.

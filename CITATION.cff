@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite the article below."
+title: "Charge Fully, Stay Safe: Nested Multi-Timescale Learning for EV Charging Coordination"
+type: software
+repository-code: "https://github.com/Abraheem13/nested-ev-grid"
+authors:
+  - family-names: Rashid
+    given-names: Abraheem
+    affiliation: "Brunel University London"
+  - family-names: Iradat
+    given-names: Faisal
+    affiliation: "Institute of Business Administration, Karachi"
+  - family-names: Iqbal
+    given-names: Waseem
+    affiliation: "Sultan Qaboos University"
+  - family-names: Bangash
+    given-names: Yawar Abbas
+    affiliation: "Sunway University"
+preferred-citation:
+  type: article
+  title: "Charge Fully, Stay Safe: Nested Multi-Timescale Learning for EV Charging Coordination"
+  status: submitted
+  journal: "IEEE Transactions on Sustainable Energy"
+  authors:
+    - family-names: Rashid
+      given-names: Abraheem
+    - family-names: Iradat
+      given-names: Faisal
+    - family-names: Iqbal
+      given-names: Waseem
+    - family-names: Bangash
+      given-names: Yawar Abbas

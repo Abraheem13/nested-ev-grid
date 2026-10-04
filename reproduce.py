@@ -4,7 +4,7 @@
     python reproduce.py                 # everything (data -> tests -> model selection -> train -> calibrate -> eval -> paper)
     python reproduce.py --jobs 8        # parallel workers (default: CPU count)
     python reproduce.py --from-results  # only regenerate tables/figures/numbers from artifacts/
-    python reproduce.py --quick         # smoke run: 1 seed, 30 training episodes, 3 eval days
+    python reproduce.py --quick         # short functional check: 1 seed, 30 training episodes, 3 eval days
 
 Every stage is resumable: a job whose output already exists is skipped
 (--force re-runs). Outputs:
@@ -245,7 +245,7 @@ def main():
         (ART / "provenance.json").write_text(json.dumps(provenance(), indent=2))
     from nflev.eval.analysis import build_all
     build_all(ART, ROOT / "paper" / "generated")
-    if not a.quick:                  # the quick smoke run lacks data for several claims
+    if not a.quick:                  # the quick check lacks data for several claims
         compile_paper()
 
 

@@ -1,21 +1,27 @@
-
-results/**/*.pt
-
-results/**/__pycache__/
-
-**/__pycache__/
-
+# Python
+__pycache__/
 *.pyc
+*.egg-info/
+.pytest_cache/
+.venv/
 
-nohup.out
-
-logs_*.out
-
-
-# v3
+# Downloaded data (fetched and checksum-verified by nflev.data.sources)
 data/cache/
+
+# Quick check run (python reproduce.py --quick)
 artifacts_quick/
+
+# Training-time files: console logs, resumable checkpoints, learning-curve snapshots
 artifacts/logs/
+artifacts/runs/*/checkpoint.pt
+artifacts/runs/*/checkpoint.tmp
+artifacts/runs/*/snapshot_ep*.pt
+artifacts/tuning/*/s*.log
+artifacts/tuning/*/s*/checkpoint.pt
+artifacts/tuning/*/s*/checkpoint.tmp
+artifacts/tuning/*/s*/snapshot_ep*.pt
+
+# LaTeX build files
 paper/*.aux
 paper/*.log
 paper/*.out
@@ -24,12 +30,8 @@ paper/*.blg
 paper/*.fls
 paper/*.fdb_latexmk
 paper/*.synctex.gz
-# training-time files (resumable checkpoints and learning-curve snapshots)
-artifacts/runs/*/checkpoint.pt
-artifacts/runs/*/checkpoint.tmp
-artifacts/runs/*/snapshot_ep*.pt
 
-# training-time files of the model-selection round
-artifacts/tuning/*/s*/checkpoint.pt
-artifacts/tuning/*/s*/checkpoint.tmp
-artifacts/tuning/*/s*/snapshot_ep*.pt
+# Editors and operating systems
+.DS_Store
+.vscode/
+.idea/

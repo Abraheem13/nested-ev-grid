@@ -1,4 +1,4 @@
-# NFL-EV v3 configuration. Every value is read by the code; nothing here is decorative.
+# Configuration of the study. Every value is read by the code.
 seed: 0
 
 simulation:

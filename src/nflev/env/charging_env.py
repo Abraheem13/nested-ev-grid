@@ -1,4 +1,4 @@
-"""Multi-timescale EV charging environment on a radial feeder (v3).
+"""Multi-timescale EV charging environment on a radial feeder.
 
 Timescales
   Level 1  (1 h)     DSO sets the retail price corridor [p_min, p_max].

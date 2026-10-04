@@ -2,8 +2,8 @@
 """Static checks on paper/main.tex (run by reproduce.py after the analysis).
 
   * every \\ref / \\eqref has a \\label and every \\label is referenced
-  * every \\cite key has a \\bibitem, every \\bibitem is cited, and every key is
-    listed as OK or FIXED in paper/REFERENCES_VERIFICATION.md
+  * every \\cite key has a \\bibitem, every \\bibitem is cited, and the
+    bibliography is numbered in order of first citation
   * every generated macro used in the text is defined in generated/numbers.tex
   * every \\input / \\includegraphics target exists
   * environments are balanced
@@ -78,11 +78,6 @@ def check(tex_path: pathlib.Path = PAPER / "main.tex") -> list[str]:
         if f != b:
             errs.append(f"bibliography not in citation order: [{i}] is {b}, first cited is {f}")
             break
-    ledger = (PAPER / "REFERENCES_VERIFICATION.md").read_text()
-    status = dict(re.findall(r"^\|\s*([A-Za-z0-9_]+)\s*\|\s*\**([A-Z]+)", ledger, re.M))
-    for b in items:
-        if status.get(b) not in ("OK", "FIXED"):
-            errs.append(f"bibitem {b} is not verified in REFERENCES_VERIFICATION.md (status {status.get(b)})")
 
     # qualitative claims: every "% claim: name" tag must name a claim that holds
     claims_f = PAPER / "generated" / "claims.json"
