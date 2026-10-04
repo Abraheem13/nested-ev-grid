@@ -58,7 +58,7 @@ reactive power bounded by the inverter apparent-power rating, falling back to
 curtailment only when that headroom is exhausted. We evaluate on the IEEE 33-
 and 69-bus feeders with AC power flow, real day-ahead prices, household loads
 and charging sessions, \GEvalDays{} held-out days and \GTrainSeeds{} training
-seeds. At \SI{80}{\percent} EV penetration the controller cuts energy cost by
+seeds. At \GPenSThree\% EV penetration the controller cuts energy cost by
 \GSavingNestedUncSThree\% relative to uncoordinated charging with no voltage
 violations% claim: nested_zero_viol_nominal
 \ (uncoordinated: \GUncoordinatedSThreeViol\% of steps) and is the cheapest
@@ -69,7 +69,7 @@ heuristic that executes the same plan per vehicle;% claim: pa_cheaper_than_neste
 \GReductionCurtNestedPaSSeven\% less energy% claim: nested_less_curtailment_than_pa_S7
 \ and leaves \GReductionUnmetNestedPaSSeven\% less undelivered.% claim: nested_less_unmet_than_pa_S7
 \ Attached to the baselines, Level~3 removes their violations up to
-\SI{100}{\percent} penetration when load forecasts are accurate.% claim: l3_zero_viol_rules_nominal
+\GPenSFive\% penetration when load forecasts are accurate.% claim: l3_zero_viol_rules_nominal
 % claim: l3_zero_viol_learned_nominal
 \end{abstract}
 
@@ -227,7 +227,7 @@ feeders with the MATPOWER data~\cite{zimmerman2011} (open tie lines removed).
 Five aggregators connect at buses 6, 12, 18, 25 and 30 of the 33-bus feeder
 (9, 21, 35, 49 and 61 on the 69-bus feeder), from electrically strong to weak
 locations (Fig.~\ref{fig:feeder}). Each aggregator serves its vehicles through
-a \SI{500}{kW} transformer. The substation voltage is $1.03\pu$. With
+a \SI{500}{kW} transformer. The substation voltage is held at $1.03\pu$ throughout. With
 constant-power loads the radial AC power-flow equations are
 \begin{equation}
 \mathbf{V}=V_0\mathbf{1}-\mathbf{Z}^{\mathrm{path}}\,\overline{\left(\mathbf{S}\oslash\mathbf{V}\right)},
@@ -503,7 +503,7 @@ from the configuration file.
 
 \begin{table}[t]
 \centering
-\caption{Hyperparameters (from \texttt{configs/base.yaml}).}
+\caption{Hyperparameters, read from the configuration file of the code.}
 \label{tab:hyper}
 \footnotesize
 \input{generated/tab_hyper.tex}
@@ -514,7 +514,7 @@ from the configuration file.
 
 \subsection{Scenarios}
 S1, S2, S3 and S5 use 120, 200, 240 and 300 vehicles (40--100\% penetration).
-S4 repeats S3 with a \SI{15}{\percent} hourly-persistent base-load forecast
+S4 repeats S3 with a 15\% hourly-persistent base-load forecast
 error. Two stress tests probe Level~3: S6 forbids all charging between 19:00
 and 20:00 (a failure mode in which reactive capacity tied to charging power
 would vanish), and S7 has 360 vehicles (120\%) with inverters derated to
