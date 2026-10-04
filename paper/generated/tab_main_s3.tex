@@ -2,24 +2,24 @@
 \toprule
 Method & Cost (\euro) & \euro/kWh & Retail & SQ & Viol.\ (\%) & $V_{\min}$ & Curt.\ (kWh) \\
 \midrule
-Uncoordinated & 931.4 {\scriptsize[834.1, 1056.4]} & 0.1146 & 0.200 & 1.000 & 3.99 & 0.9554 & 0.0 \\
-Uncoordinated + L3 & 931.4 {\scriptsize[834.8, 1057.5]} & 0.1146 & 0.200 & 1.000 & 0.00 & 0.9615 & 5.0 \\
-TOU timer & 697.7 {\scriptsize[640.9, 749.9]} & 0.0863 & 0.132 & 0.995 & 4.30 & 0.9372 & 0.0 \\
-TOU timer + L3 & 697.1 {\scriptsize[640.2, 750.6]} & 0.0862 & 0.132 & 0.995 & 0.00 & 0.9515 & 23.7 \\
-Price-aware heuristic & 619.8 {\scriptsize[566.2, 675.2]} & 0.0766 & 0.200 & 0.997 & 0.73 & 0.9598 & 0.0 \\
-Price-aware heuristic + L3 & 619.8 {\scriptsize[563.4, 674.6]} & 0.0766 & 0.200 & 0.997 & 0.00 & 0.9623 & 1.7 \\
-MPC LP-OPF (perfect foresight) & 612.0 {\scriptsize[556.5, 666.7]} & 0.0759 & 0.200 & 0.992 & 0.01 & 0.9634 & 0.0 \\
-MPC LP-OPF (perfect foresight) + L3 & 612.0 {\scriptsize[556.0, 667.2]} & 0.0759 & 0.200 & 0.992 & 0.00 & 0.9635 & 0.0 \\
+Uncoordinated & 931.4 {\scriptsize[833.8, 1060.7]} & 0.1146 & 0.200 & 1.000 & 3.99 & 0.9554 & 0.0 \\
+Uncoordinated + L3 & 931.4 {\scriptsize[835.0, 1062.6]} & 0.1146 & 0.200 & 1.000 & 0.00 & 0.9615 & 5.0 \\
+TOU timer & 697.7 {\scriptsize[639.6, 751.2]} & 0.0863 & 0.132 & 0.995 & 4.30 & 0.9372 & 0.0 \\
+TOU timer + L3 & 697.1 {\scriptsize[641.0, 750.9]} & 0.0862 & 0.132 & 0.995 & 0.00 & 0.9515 & 23.7 \\
+Price-aware heuristic & 619.8 {\scriptsize[561.8, 674.2]} & 0.0766 & 0.200 & 0.997 & 0.73 & 0.9598 & 0.0 \\
+Price-aware heuristic + L3 & 619.8 {\scriptsize[564.4, 675.0]} & 0.0766 & 0.200 & 0.997 & 0.00 & 0.9623 & 1.7 \\
+MPC LP-OPF (perfect foresight) & 612.0 {\scriptsize[555.7, 667.2]} & 0.0759 & 0.200 & 0.992 & 0.01 & 0.9634 & 0.0 \\
+MPC LP-OPF (perfect foresight) + L3 & 612.0 {\scriptsize[555.3, 667.3]} & 0.0759 & 0.200 & 0.992 & 0.00 & 0.9635 & 0.0 \\
 \midrule
-Flat DDPG & 771.3 {\scriptsize[706.2, 847.1]} & 0.0953 & 0.203 & 0.996 & 0.54 & 0.9662 & 0.0 \\
-Flat DDPG + L3 & 771.3 {\scriptsize[706.3, 846.7]} & 0.0953 & 0.203 & 0.996 & 0.00 & 0.9678 & 0.2 \\
-PPO-Lagrangian & 797.2 {\scriptsize[731.7, 873.6]} & 0.0985 & 0.199 & 0.996 & 0.16 & 0.9757 & 0.0 \\
-PPO-Lagrangian + L3 & 797.2 {\scriptsize[732.4, 873.5]} & 0.0985 & 0.199 & 0.996 & 0.00 & 0.9762 & 0.0 \\
-CPO & 813.4 {\scriptsize[743.7, 900.0]} & 0.1002 & 0.200 & 0.998 & 0.19 & 0.9744 & 0.0 \\
-CPO + L3 & 813.4 {\scriptsize[744.3, 899.8]} & 0.1002 & 0.200 & 0.998 & 0.00 & 0.9750 & 0.0 \\
-Hierarchical RL & 741.7 {\scriptsize[685.3, 797.9]} & 0.0915 & 0.201 & 0.997 & 0.03 & 0.9730 & 0.0 \\
-Hierarchical RL + L3 & 741.7 {\scriptsize[687.6, 801.7]} & 0.0916 & 0.201 & 0.997 & 0.00 & 0.9731 & 0.0 \\
+Flat DDPG & 756.1 {\scriptsize[695.5, 828.3]} & 0.0934 & 0.203 & 0.996 & 0.45 & 0.9673 & 0.0 \\
+Flat DDPG + L3 & 756.1 {\scriptsize[694.6, 827.0]} & 0.0934 & 0.203 & 0.996 & 0.00 & 0.9686 & 0.1 \\
+PPO-Lagrangian & 790.2 {\scriptsize[725.8, 866.6]} & 0.0976 & 0.199 & 0.996 & 0.19 & 0.9758 & 0.0 \\
+PPO-Lagrangian + L3 & 790.2 {\scriptsize[725.2, 865.0]} & 0.0976 & 0.199 & 0.996 & 0.00 & 0.9763 & 0.0 \\
+CPO & 816.9 {\scriptsize[747.5, 900.1]} & 0.1006 & 0.200 & 0.999 & 0.35 & 0.9731 & 0.0 \\
+CPO + L3 & 817.0 {\scriptsize[748.1, 903.3]} & 0.1006 & 0.200 & 0.999 & 0.00 & 0.9739 & 0.0 \\
+Hierarchical RL & 741.3 {\scriptsize[685.3, 799.4]} & 0.0915 & 0.200 & 0.997 & 0.03 & 0.9741 & 0.0 \\
+Hierarchical RL + L3 & 741.3 {\scriptsize[685.3, 800.0]} & 0.0915 & 0.200 & 0.997 & 0.00 & 0.9743 & 0.0 \\
 \midrule
-\textbf{Nested (proposed)} & \textbf{645.7 {\scriptsize[588.0, 701.7]}} & \textbf{0.0797} & \textbf{0.202} & \textbf{0.997} & \textbf{0.00} & \textbf{0.9663} & \textbf{0.6} \\
+\textbf{Nested (proposed)} & \textbf{645.0 {\scriptsize[590.0, 700.0]}} & \textbf{0.0797} & \textbf{0.201} & \textbf{0.997} & \textbf{0.00} & \textbf{0.9665} & \textbf{0.4} \\
 \bottomrule
 \end{tabular}

@@ -153,7 +153,12 @@ class Numbers:
         if rnd != "nearest" and not isinstance(value, str):
             f = 10 ** nd
             value = (math.ceil(value * f - 1e-9) if rnd == "up" else math.floor(value * f + 1e-9)) / f
-        v = value if isinstance(value, str) else (f"{int(value)}" if nd == 0 else f"{value:.{nd}f}")
+        if isinstance(value, str):
+            v = value
+        elif nd == 0:
+            v = f"{int(math.copysign(math.floor(abs(float(value)) + 0.5), value))}"
+        else:
+            v = f"{value:.{nd}f}"
         self.lines.append(f"\\newcommand{{\\{name}}}{{{v}}}")
 
     def write(self, path):
@@ -219,7 +224,7 @@ def table_stats(t_cost, t_sq, path):
     path.write_text("\n".join(lines) + "\n")
 
 
-ABL_LABELS = {"main": "Complete framework", "abl_no_prior": "No planning prior",
+ABL_LABELS = {"abl_base": "Complete framework", "abl_no_prior": "No planning prior",
               "abl_no_l1": "No Level 1", "abl_flat_timescale": "Single timescale",
               "abl_no_behavior": "No behaviour model", "abl_no_l3": "No Level 3 (trained)",
               "ablation": "L3 removed at test", "abl_no_curriculum": "No curriculum",
@@ -656,11 +661,11 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
 
     # ablations: change relative to the complete framework (same days, same seeds)
     for sc in ("S3", "S5"):
-        base = get("nested", sc)
+        base = get("nested", sc, "abl_base")
         if base is None:
             continue
         for v in ABL_LABELS:
-            if v == "main":
+            if v == "abl_base":
                 continue
             m = "nested-noL3" if v in ("abl_no_l3", "ablation") else "nested"
             r = get(m, sc, v)
@@ -749,7 +754,7 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
             C.add(f"{v}_violates_S3", r["violation_rate_pct"] > 0)
     nb = get("nested", "S3", "abl_no_behavior")
     if nb is not None:
-        C.add("abl_no_behavior_higher_sq_S3", nb["service_quality"] > get("nested", "S3")["service_quality"])
+        C.add("abl_no_behavior_higher_sq_S3", nb["service_quality"] > get("nested", "S3", "abl_base")["service_quality"])
         # stress: nested versus the price-aware heuristic with Level 3
     for sc in ("S5", "S7"):
         nst, pa = get("nested", sc), get("price_aware+L3", sc)
@@ -828,6 +833,11 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
 def build_all(art: pathlib.Path, out: pathlib.Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
     df = load(art)
+    # ablations use fewer seeds than the main comparison: compare them with the
+    # complete framework on exactly the same training seeds ("abl_base")
+    abl_seeds = sorted(df[df.variant.str.startswith("abl_")].train_seed.unique())
+    base = df[(df.variant == "main") & (df.method == "nested") & df.train_seed.isin(abl_seeds)]
+    df = pd.concat([df, base.assign(variant="abl_base")], ignore_index=True)
     d = per_day(df)
     s = summarise(d)
     s.to_csv(out / "summary.csv", index=False)
