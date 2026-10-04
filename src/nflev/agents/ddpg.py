@@ -48,11 +48,15 @@ class ReplayBuffer:
 
 
 class DDPGAgent:
-    def __init__(self, cfg: dict, s_dim: int, a_dim: int, seed: int, zero_init: bool = False):
+    def __init__(self, cfg: dict, s_dim: int, a_dim: int, seed: int, zero_init: bool = False,
+                 residual_penalty: float = 0.0):
         p = cfg["training"]["ddpg"]
         self.tau, self.batch, self.gamma = p["tau"], p["batch"], p["gamma"]
         self.warmup = p["warmup"]
         self.a_dim = a_dim
+        # actor regularizer beta * (2 a_0 - 1)^2 on the residual component: the
+        # policy leaves the plan only where the critic values the deviation more
+        self.residual_penalty = float(residual_penalty)
         self.rng = np.random.default_rng(seed)
         self.actor = mlp([s_dim, *HIDDEN, a_dim], nn.Sigmoid())
         self.critic = mlp([s_dim + a_dim, *HIDDEN, 1])
@@ -92,7 +96,10 @@ class DDPGAgent:
         self.opt_c.zero_grad()
         loss_c.backward()
         self.opt_c.step()
-        loss_a = -self.critic(torch.cat([s, self.actor(s)], -1)).mean()
+        a_pi = self.actor(s)
+        loss_a = -self.critic(torch.cat([s, a_pi], -1)).mean()
+        if self.residual_penalty > 0:
+            loss_a = loss_a + self.residual_penalty * ((2.0 * a_pi[:, 0] - 1.0) ** 2).mean()
         self.opt_a.zero_grad()
         loss_a.backward()
         self.opt_a.step()

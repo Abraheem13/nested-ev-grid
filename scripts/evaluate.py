@@ -27,7 +27,7 @@ def main():
     ap.add_argument("--scenario", required=True)
     ap.add_argument("--fleet", default="residential")
     ap.add_argument("--network", default="ieee33")
-    ap.add_argument("--split", default="test", choices=["test", "alt"])
+    ap.add_argument("--split", default="test", choices=["test", "alt", "val"])
     ap.add_argument("--episodes", type=int, default=None)
     ap.add_argument("--checkpoint", default=None)
     ap.add_argument("--train-seed", type=int, default=-1)

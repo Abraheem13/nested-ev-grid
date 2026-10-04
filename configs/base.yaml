@@ -71,18 +71,20 @@ data:
   train_years: [2023]
   test_years: [2024]
   alt_regime_years: [2019]    # pre-crisis price regime (generalization test)
+  val_days: 30                # training-year days held out for model selection (never trained on)
 
 level1:
   reward: {cost: 1.0, vdef: 50.0, vind: 10.0, unmet: 5.0, curt: 0.5}
 
 level2:
   deadline_guard: true        # always serve vehicles whose laxity is exhausted
-  disaggregation: llf         # llf (least-laxity-first) | proportional
+  disaggregation: llf         # llf (least-laxity-first) | plan (urgent, then planned, then laxity) | proportional
   shared: true                # one actor-critic shared by the aggregators (id one-hot in the state)
   prior: residual             # residual | feature | none: cheapest-slot plan as residual base,
                               # as an input feature only, or not at all
   residual_scale: 0.1         # rho in u = clip(u0 + rho (2a - 1), 0, 1)
   residual_init: true         # actor starts at zero residual (output layer ~0)
+  residual_penalty: 0.0        # beta: actor regularizer on the residual, beta*(2a-1)^2 (0 = off)
   reward: {mode: cost, margin: 1.0, unmet: 2.0, urgency: 0.5, curt: 0.5}
   revenue_neutral: {enabled: true, w_init: 0.0, kp: 2.0, ki: 0.05, ema: 0.2, w_min: -2.0, w_max: 2.0}   # PI Lagrangian: mean retail price = lambda_ref
 

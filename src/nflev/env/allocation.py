@@ -42,11 +42,16 @@ def laxity_h(hours_left: np.ndarray, need_kwh: np.ndarray, p_max_kw: float, eff:
 
 
 def llf_allocate(u: float, cap: np.ndarray, laxity: np.ndarray, p_cap: float,
-                 interval_h: float, guard: bool, mode: str = "llf") -> tuple[np.ndarray, float]:
+                 interval_h: float, guard: bool, mode: str = "llf",
+                 planned: np.ndarray | None = None) -> tuple[np.ndarray, float]:
     """Returns (rates, applied_u). u in [0, 1] is the fraction of the available
     power min(P_cap, sum cap) to dispatch. mode="llf" fills vehicles in order of
-    increasing laxity; mode="proportional" (ablation) serves guarded vehicles
-    first and shares the rest in proportion to cap."""
+    increasing laxity; mode="plan" fills urgent vehicles (laxity <= one
+    interval) first, then the vehicles whose cheapest-slot plan selects the
+    current interval (`planned`), then the rest, each group by increasing
+    laxity, so u = u0 executes the plan vehicle by vehicle; mode="proportional"
+    (ablation) serves guarded vehicles first and shares the rest in proportion
+    to cap."""
     cap = np.asarray(cap, float)
     avail = min(p_cap, float(cap.sum()))
     if avail <= 0:
@@ -56,9 +61,14 @@ def llf_allocate(u: float, cap: np.ndarray, laxity: np.ndarray, p_cap: float,
     if guard:
         target = max(target, min(float(cap[urgent].sum()), avail))
     rates = np.zeros_like(cap)
-    if mode == "llf":
+    if mode in ("llf", "plan"):
+        if mode == "plan":
+            sel = np.zeros(len(cap), bool) if planned is None else np.asarray(planned, bool)
+            order = np.lexsort((laxity, ~sel, ~urgent))      # urgent, then planned, then laxity
+        else:
+            order = np.argsort(laxity, kind="stable")
         rem = target
-        for i in np.argsort(laxity, kind="stable"):
+        for i in order:
             if rem <= 1e-12:
                 break
             rates[i] = min(cap[i], rem)

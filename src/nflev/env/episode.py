@@ -21,6 +21,7 @@ from ..data.loads import load_window
 from ..data.prices import candidate_days, price_window
 
 EVAL_PERMUTATION_SEED = 20240101
+VAL_PERMUTATION_SEED = 20230101
 
 
 @dataclass
@@ -39,10 +40,18 @@ class EpisodeSpec:
 
 
 def _days(cfg: dict, split: str, fleet: str, horizon_h: int) -> list[pd.Timestamp]:
-    years = {"train": cfg["data"]["train_years"], "test": cfg["data"]["test_years"],
-             "alt": cfg["data"]["alt_regime_years"]}[split]
+    """"train" and "val" partition the training years: `data.val_days` days,
+    drawn by a fixed permutation, are held out for model selection and never
+    used for training."""
+    years = {"train": cfg["data"]["train_years"], "val": cfg["data"]["train_years"],
+             "test": cfg["data"]["test_years"], "alt": cfg["data"]["alt_regime_years"]}[split]
     look = cfg["simulation"]["price_lookahead_h"]
-    return candidate_days(years, horizon_h + look, F.EPISODE_START_HOUR[fleet])
+    days = candidate_days(years, horizon_h + look, F.EPISODE_START_HOUR[fleet])
+    n_val = int(cfg["data"].get("val_days", 0))
+    if split in ("train", "val") and n_val > 0:
+        held = set(np.random.default_rng(VAL_PERMUTATION_SEED).permutation(len(days))[:n_val].tolist())
+        days = [d for i, d in enumerate(days) if (i in held) == (split == "val")]
+    return days
 
 
 def make_episode(cfg: dict, fleet: str, split: str, n_ev: int, seed: int,
@@ -77,7 +86,7 @@ def make_episode(cfg: dict, fleet: str, split: str, n_ev: int, seed: int,
     if fleet == "residential":
         evs = F.sample_residential(n_ev, rng, horizon_h, p_max, eff, cfg["fleets"]["residential"])
     elif fleet.startswith("acn_"):
-        evs = F.sample_acn(fleet[4:], "train" if split == "train" else "test",
+        evs = F.sample_acn(fleet[4:], "train" if split in ("train", "val") else "test",
                            n_ev, rng, horizon_h, p_max, eff)
     else:
         raise ValueError(fleet)
