@@ -1,0 +1,17 @@
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+Configuration & \multicolumn{3}{c}{S3} & \multicolumn{3}{c}{S5} \\
+ & Cost & SQ & Viol. & Cost & SQ & Viol. \\
+\midrule
+Complete framework & 646 & 0.997 & 0.00 & 807 & 0.997 & 0.00 \\
+No planning prior & 697 & 0.996 & 0.00 & 865 & 0.996 & 0.00 \\
+No Level 1 & 643 & 0.996 & 0.00 & 805 & 0.996 & 0.00 \\
+Single timescale & 651 & 0.996 & 0.00 & 813 & 0.996 & 0.00 \\
+No behaviour model & 639 & 1.000 & 0.00 & 800 & 0.999 & 0.00 \\
+No Level 3 (trained) & 648 & 0.996 & 0.23 & 811 & 0.995 & 0.71 \\
+L3 removed at test & 646 & 0.997 & 0.33 & -- & -- & -- \\
+No curriculum & 639 & 0.996 & 0.00 & 797 & 0.996 & 0.00 \\
+No deadline guard & 651 & 0.996 & 0.00 & 815 & 0.996 & 0.00 \\
+Proportional allocation & 661 & 0.995 & 0.00 & 828 & 0.995 & 0.00 \\
+\bottomrule
+\end{tabular}

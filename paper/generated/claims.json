@@ -1,0 +1,498 @@
+{
+  "nested_zero_viol_main": {
+    "holds": false,
+    "detail": "max 0.006944444444444443"
+  },
+  "nested_cheapest_learned_main": {
+    "holds": true,
+    "detail": "{\"S1\": 13.19, \"S2\": 13.23, \"S3\": 12.94, \"S4\": 13.02, \"S5\": 12.72}"
+  },
+  "nested_cheaper_than_unc_main": {
+    "holds": true,
+    "detail": "{\"S1\": 30.75, \"S2\": 30.79, \"S3\": 30.67, \"S4\": 30.95, \"S5\": 30.53}"
+  },
+  "nested_cheaper_than_tou_main": {
+    "holds": true,
+    "detail": ""
+  },
+  "nested_cheaper_than_pa_main": {
+    "holds": false,
+    "detail": "{\"S1\": 3.68, \"S2\": 3.97, \"S3\": 4.18, \"S4\": 4.1, \"S5\": 4.38}"
+  },
+  "nested_above_lp_main": {
+    "holds": true,
+    "detail": "{\"S1\": 5.02, \"S2\": 5.27, \"S3\": 5.51, \"S4\": 5.44, \"S5\": 5.47}"
+  },
+  "nested_revenue_neutral_main": {
+    "holds": true,
+    "detail": "{\"S1\": 0.206, \"S2\": 0.203, \"S3\": 0.202, \"S4\": 0.203, \"S5\": 0.201}"
+  },
+  "nested_retail_below_ref_main": {
+    "holds": false,
+    "detail": "{\"S1\": 0.206, \"S2\": 0.203, \"S3\": 0.202, \"S4\": 0.203, \"S5\": 0.201}"
+  },
+  "lp_cheapest_S1": {
+    "holds": true,
+    "detail": "lp_opf"
+  },
+  "pa_cheapest_nonoracle_S1": {
+    "holds": true,
+    "detail": "price_aware"
+  },
+  "lp_cheapest_S2": {
+    "holds": true,
+    "detail": "lp_opf"
+  },
+  "pa_cheapest_nonoracle_S2": {
+    "holds": true,
+    "detail": "price_aware"
+  },
+  "lp_cheapest_S3": {
+    "holds": true,
+    "detail": "lp_opf"
+  },
+  "pa_cheapest_nonoracle_S3": {
+    "holds": true,
+    "detail": "price_aware"
+  },
+  "lp_cheapest_S4": {
+    "holds": true,
+    "detail": "lp_opf"
+  },
+  "pa_cheapest_nonoracle_S4": {
+    "holds": true,
+    "detail": "price_aware"
+  },
+  "lp_cheapest_S5": {
+    "holds": true,
+    "detail": "lp_opf"
+  },
+  "pa_cheapest_nonoracle_S5": {
+    "holds": true,
+    "detail": "price_aware"
+  },
+  "pa_cheaper_than_nested_all_main": {
+    "holds": true,
+    "detail": "{\"S1\": 3.68, \"S2\": 3.97, \"S3\": 4.18, \"S4\": 4.1, \"S5\": 4.38}"
+  },
+  "tou_violates_main": {
+    "holds": true,
+    "detail": ""
+  },
+  "l3_zero_viol_rules_main": {
+    "holds": false,
+    "detail": ""
+  },
+  "unc_violates_main": {
+    "holds": true,
+    "detail": ""
+  },
+  "s6_l3_zero_viol": {
+    "holds": true,
+    "detail": "max 0.0"
+  },
+  "s7_l3_violations_remain": {
+    "holds": true,
+    "detail": "max 0.34861111111111115"
+  },
+  "nested_zero_viol_nominal": {
+    "holds": true,
+    "detail": "max 0.0"
+  },
+  "l3_zero_viol_rules_nominal": {
+    "holds": true,
+    "detail": "max 0.0"
+  },
+  "l3_zero_viol_learned_nominal": {
+    "holds": true,
+    "detail": ""
+  },
+  "s4_l3_violations_only_base_load_days": {
+    "holds": true,
+    "detail": "{}"
+  },
+  "l3_negligible_cost_main": {
+    "holds": true,
+    "detail": "max 0.09794267477583052"
+  },
+  "l3_zero_viol_learned_main": {
+    "holds": false,
+    "detail": "max 0.0009259259259259254"
+  },
+  "learned_noL3_violate": {
+    "holds": true,
+    "detail": ""
+  },
+  "nested_sig_costlier_than_price_aware_L3_S3": {
+    "holds": true,
+    "detail": "diff 25.9, p 2.84e-14"
+  },
+  "nested_sig_costlier_than_lp_opf_L3_S3": {
+    "holds": true,
+    "detail": "diff 33.7, p 2.84e-14"
+  },
+  "nested_sig_cheaper_than_uncoordinated_S3": {
+    "holds": true,
+    "detail": "diff -285.7, p 2.84e-14"
+  },
+  "nested_sig_cheaper_all_learned_S3": {
+    "holds": true,
+    "detail": "['uncoordinated', 'uncoordinated+L3', 'tou', 'tou+L3', 'price_aware', 'price_aware+L3', 'lp_opf', 'lp_opf+L3', 'flat_ddpg', 'flat_ddpg+L3', 'ppo_lag', 'ppo_lag+L3', 'cpo', 'cpo+L3', 'hrl', 'hrl+L3']"
+  },
+  "abl_abl_no_prior_costlier_S3": {
+    "holds": true,
+    "detail": "696.5 vs 645.7"
+  },
+  "abl_abl_no_prior_cheaper_S3": {
+    "holds": false,
+    "detail": "696.5 vs 645.7"
+  },
+  "abl_abl_no_l1_costlier_S3": {
+    "holds": false,
+    "detail": "642.8 vs 645.7"
+  },
+  "abl_abl_no_l1_cheaper_S3": {
+    "holds": true,
+    "detail": "642.8 vs 645.7"
+  },
+  "abl_abl_flat_timescale_costlier_S3": {
+    "holds": true,
+    "detail": "651.2 vs 645.7"
+  },
+  "abl_abl_flat_timescale_cheaper_S3": {
+    "holds": false,
+    "detail": "651.2 vs 645.7"
+  },
+  "abl_abl_no_behavior_costlier_S3": {
+    "holds": false,
+    "detail": "639.4 vs 645.7"
+  },
+  "abl_abl_no_behavior_cheaper_S3": {
+    "holds": true,
+    "detail": "639.4 vs 645.7"
+  },
+  "abl_abl_no_l3_costlier_S3": {
+    "holds": true,
+    "detail": "648.5 vs 645.7"
+  },
+  "abl_abl_no_l3_cheaper_S3": {
+    "holds": false,
+    "detail": "648.5 vs 645.7"
+  },
+  "abl_ablation_costlier_S3": {
+    "holds": false,
+    "detail": "645.7 vs 645.7"
+  },
+  "abl_ablation_cheaper_S3": {
+    "holds": true,
+    "detail": "645.7 vs 645.7"
+  },
+  "abl_abl_no_curriculum_costlier_S3": {
+    "holds": false,
+    "detail": "639.2 vs 645.7"
+  },
+  "abl_abl_no_curriculum_cheaper_S3": {
+    "holds": true,
+    "detail": "639.2 vs 645.7"
+  },
+  "abl_abl_no_guard_costlier_S3": {
+    "holds": true,
+    "detail": "651.2 vs 645.7"
+  },
+  "abl_abl_no_guard_cheaper_S3": {
+    "holds": false,
+    "detail": "651.2 vs 645.7"
+  },
+  "abl_abl_proportional_costlier_S3": {
+    "holds": true,
+    "detail": "660.8 vs 645.7"
+  },
+  "abl_abl_proportional_cheaper_S3": {
+    "holds": false,
+    "detail": "660.8 vs 645.7"
+  },
+  "abl_abl_no_prior_costlier_S5": {
+    "holds": true,
+    "detail": "865.5 vs 806.6"
+  },
+  "abl_abl_no_prior_cheaper_S5": {
+    "holds": false,
+    "detail": "865.5 vs 806.6"
+  },
+  "abl_abl_no_l1_costlier_S5": {
+    "holds": false,
+    "detail": "804.6 vs 806.6"
+  },
+  "abl_abl_no_l1_cheaper_S5": {
+    "holds": true,
+    "detail": "804.6 vs 806.6"
+  },
+  "abl_abl_flat_timescale_costlier_S5": {
+    "holds": true,
+    "detail": "812.8 vs 806.6"
+  },
+  "abl_abl_flat_timescale_cheaper_S5": {
+    "holds": false,
+    "detail": "812.8 vs 806.6"
+  },
+  "abl_abl_no_behavior_costlier_S5": {
+    "holds": false,
+    "detail": "800.0 vs 806.6"
+  },
+  "abl_abl_no_behavior_cheaper_S5": {
+    "holds": true,
+    "detail": "800.0 vs 806.6"
+  },
+  "abl_abl_no_l3_costlier_S5": {
+    "holds": true,
+    "detail": "810.5 vs 806.6"
+  },
+  "abl_abl_no_l3_cheaper_S5": {
+    "holds": false,
+    "detail": "810.5 vs 806.6"
+  },
+  "abl_abl_no_curriculum_costlier_S5": {
+    "holds": false,
+    "detail": "797.3 vs 806.6"
+  },
+  "abl_abl_no_curriculum_cheaper_S5": {
+    "holds": true,
+    "detail": "797.3 vs 806.6"
+  },
+  "abl_abl_no_guard_costlier_S5": {
+    "holds": true,
+    "detail": "814.6 vs 806.6"
+  },
+  "abl_abl_no_guard_cheaper_S5": {
+    "holds": false,
+    "detail": "814.6 vs 806.6"
+  },
+  "abl_abl_proportional_costlier_S5": {
+    "holds": true,
+    "detail": "828.5 vs 806.6"
+  },
+  "abl_abl_proportional_cheaper_S5": {
+    "holds": false,
+    "detail": "828.5 vs 806.6"
+  },
+  "decomp_price_aware_L3_cheaper_than_plan_S3": {
+    "holds": true,
+    "detail": ""
+  },
+  "decomp_price_aware_L3_costlier_than_plan_S3": {
+    "holds": false,
+    "detail": ""
+  },
+  "decomp_price_aware_L3_less_curt_than_plan_S3": {
+    "holds": false,
+    "detail": ""
+  },
+  "decomp_price_aware_L3_less_unmet_than_plan_S3": {
+    "holds": false,
+    "detail": ""
+  },
+  "decomp_nested_planprice_cheaper_than_plan_S3": {
+    "holds": false,
+    "detail": ""
+  },
+  "decomp_nested_planprice_costlier_than_plan_S3": {
+    "holds": true,
+    "detail": ""
+  },
+  "decomp_nested_planprice_less_curt_than_plan_S3": {
+    "holds": true,
+    "detail": ""
+  },
+  "decomp_nested_planprice_less_unmet_than_plan_S3": {
+    "holds": false,
+    "detail": ""
+  },
+  "decomp_nested_flatprice_cheaper_than_plan_S3": {
+    "holds": false,
+    "detail": ""
+  },
+  "decomp_nested_flatprice_costlier_than_plan_S3": {
+    "holds": true,
+    "detail": ""
+  },
+  "decomp_nested_flatprice_less_curt_than_plan_S3": {
+    "holds": true,
+    "detail": ""
+  },
+  "decomp_nested_flatprice_less_unmet_than_plan_S3": {
+    "holds": true,
+    "detail": ""
+  },
+  "decomp_nested_cheaper_than_plan_S3": {
+    "holds": false,
+    "detail": ""
+  },
+  "decomp_nested_costlier_than_plan_S3": {
+    "holds": true,
+    "detail": ""
+  },
+  "decomp_nested_less_curt_than_plan_S3": {
+    "holds": true,
+    "detail": ""
+  },
+  "decomp_nested_less_unmet_than_plan_S3": {
+    "holds": false,
+    "detail": ""
+  },
+  "decomp_price_aware_L3_cheaper_than_plan_S7": {
+    "holds": true,
+    "detail": ""
+  },
+  "decomp_price_aware_L3_costlier_than_plan_S7": {
+    "holds": false,
+    "detail": ""
+  },
+  "decomp_price_aware_L3_less_curt_than_plan_S7": {
+    "holds": false,
+    "detail": ""
+  },
+  "decomp_price_aware_L3_less_unmet_than_plan_S7": {
+    "holds": false,
+    "detail": ""
+  },
+  "decomp_nested_planprice_cheaper_than_plan_S7": {
+    "holds": false,
+    "detail": ""
+  },
+  "decomp_nested_planprice_costlier_than_plan_S7": {
+    "holds": true,
+    "detail": ""
+  },
+  "decomp_nested_planprice_less_curt_than_plan_S7": {
+    "holds": true,
+    "detail": ""
+  },
+  "decomp_nested_planprice_less_unmet_than_plan_S7": {
+    "holds": false,
+    "detail": ""
+  },
+  "decomp_nested_flatprice_cheaper_than_plan_S7": {
+    "holds": false,
+    "detail": ""
+  },
+  "decomp_nested_flatprice_costlier_than_plan_S7": {
+    "holds": true,
+    "detail": ""
+  },
+  "decomp_nested_flatprice_less_curt_than_plan_S7": {
+    "holds": true,
+    "detail": ""
+  },
+  "decomp_nested_flatprice_less_unmet_than_plan_S7": {
+    "holds": true,
+    "detail": ""
+  },
+  "decomp_nested_cheaper_than_plan_S7": {
+    "holds": false,
+    "detail": ""
+  },
+  "decomp_nested_costlier_than_plan_S7": {
+    "holds": true,
+    "detail": ""
+  },
+  "decomp_nested_less_curt_than_plan_S7": {
+    "holds": true,
+    "detail": ""
+  },
+  "decomp_nested_less_unmet_than_plan_S7": {
+    "holds": true,
+    "detail": ""
+  },
+  "plan_less_unmet_than_pa_S7": {
+    "holds": true,
+    "detail": "37.0 vs 106.1"
+  },
+  "general_nested_zero_viol": {
+    "holds": true,
+    "detail": ""
+  },
+  "general_nested_between_pa_and_unc": {
+    "holds": true,
+    "detail": ""
+  },
+  "general_nested_sq_below_pa_caltech": {
+    "holds": false,
+    "detail": "{\"33 bus residential\": [0.997, 0.997], \"69 bus residential\": [0.997, 0.997], \"33 bus ACN Caltech\": [0.97, 0.967], \"33 bus ACN JPL\": [0.994, 0.994], \"33 bus 2019 prices\": [0.997, 0.997]}"
+  },
+  "sens_smaller_rating_more_curtailment": {
+    "holds": true,
+    "detail": "4.7 > 0.6 > 0.1"
+  },
+  "sens_cost_insensitive": {
+    "holds": true,
+    "detail": ""
+  },
+  "sens_zero_viol": {
+    "holds": true,
+    "detail": ""
+  },
+  "sens_larger_margin_more_activation": {
+    "holds": true,
+    "detail": ""
+  },
+  "abl_no_l3_violates_S3": {
+    "holds": true,
+    "detail": ""
+  },
+  "ablation_violates_S3": {
+    "holds": true,
+    "detail": ""
+  },
+  "abl_no_behavior_higher_sq_S3": {
+    "holds": true,
+    "detail": ""
+  },
+  "nested_less_curtailment_than_pa_S5": {
+    "holds": true,
+    "detail": "1.7 vs 3.1"
+  },
+  "nested_fewer_viol_than_pa_S5": {
+    "holds": false,
+    "detail": "0.000 vs 0.000"
+  },
+  "nested_higher_sq_than_pa_S5": {
+    "holds": true,
+    "detail": "0.9971 vs 0.9951"
+  },
+  "nested_cheaper_than_pa_S5": {
+    "holds": false,
+    "detail": "806.6 vs 772.8"
+  },
+  "pa_cheaper_than_nested_S5": {
+    "holds": true,
+    "detail": "772.8 vs 806.6"
+  },
+  "nested_less_unmet_than_pa_S5": {
+    "holds": true,
+    "detail": "29.5 vs 49.9"
+  },
+  "nested_less_curtailment_than_pa_S7": {
+    "holds": true,
+    "detail": "59.5 vs 139.4"
+  },
+  "nested_fewer_viol_than_pa_S7": {
+    "holds": true,
+    "detail": "0.016 vs 0.157"
+  },
+  "nested_higher_sq_than_pa_S7": {
+    "holds": true,
+    "detail": "0.9971 vs 0.9915"
+  },
+  "nested_cheaper_than_pa_S7": {
+    "holds": false,
+    "detail": "982.9 vs 940.4"
+  },
+  "pa_cheaper_than_nested_S7": {
+    "holds": true,
+    "detail": "940.4 vs 982.9"
+  },
+  "nested_less_unmet_than_pa_S7": {
+    "holds": true,
+    "detail": "35.8 vs 106.1"
+  }
+}

@@ -1,0 +1,18 @@
+\begin{tabular}{@{}lrrrrrrrrrr@{}}
+\toprule
+Method & \multicolumn{2}{c}{S1} & \multicolumn{2}{c}{S2} & \multicolumn{2}{c}{S3} & \multicolumn{2}{c}{S4} & \multicolumn{2}{c}{S5} \\
+ & Cost & Viol. & Cost & Viol. & Cost & Viol. & Cost & Viol. & Cost & Viol. \\
+\midrule
+Uncoordinated & 474 & 0.42 & 780 & 2.35 & 931 & 3.99 & 931 & 4.53 & 1161 & 6.82 \\
+TOU timer & 358 & 0.06 & 587 & 2.39 & 698 & 4.30 & 695 & 4.31 & 858 & 7.55 \\
+Uncoordinated + L3 & 474 & 0.00 & 780 & 0.00 & 931 & 0.00 & 931 & 0.02 & 1161 & 0.00 \\
+TOU timer + L3 & 358 & 0.00 & 587 & 0.00 & 697 & 0.00 & 695 & 0.00 & 858 & 0.00 \\
+Price-aware heuristic + L3 & 317 & 0.00 & 520 & 0.00 & 620 & 0.00 & 618 & 0.02 & 773 & 0.00 \\
+MPC LP-OPF (perfect foresight) + L3 & 313 & 0.00 & 513 & 0.00 & 612 & 0.00 & 610 & 0.00 & 765 & 0.00 \\
+Flat DDPG & 407 & 0.08 & 652 & 0.35 & 771 & 0.54 & 769 & 0.91 & 948 & 1.14 \\
+PPO-Lagrangian & 407 & 0.01 & 669 & 0.14 & 797 & 0.16 & 795 & 0.60 & 993 & 0.40 \\
+CPO & 419 & 0.02 & 682 & 0.20 & 813 & 0.19 & 811 & 0.77 & 1011 & 0.44 \\
+Hierarchical RL & 378 & 0.00 & 623 & 0.04 & 742 & 0.03 & 739 & 0.38 & 924 & 0.19 \\
+Nested (proposed) & 328 & 0.00 & 540 & 0.00 & 646 & 0.00 & 643 & 0.01 & 807 & 0.00 \\
+\bottomrule
+\end{tabular}

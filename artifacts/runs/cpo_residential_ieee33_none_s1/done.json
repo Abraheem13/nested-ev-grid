@@ -1,0 +1,11 @@
+{
+  "method": "cpo",
+  "fleet": "residential",
+  "network": "ieee33",
+  "seed": 1,
+  "ablation": "none",
+  "episodes": null,
+  "config": "/home/user/nested-ev-grid/configs/base.yaml",
+  "out": "/home/user/nested-ev-grid/artifacts/runs/cpo_residential_ieee33_none_s1",
+  "wall_s": 267.1795904636383
+}
