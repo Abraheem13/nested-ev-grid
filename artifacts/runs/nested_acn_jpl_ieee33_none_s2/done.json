@@ -1,0 +1,12 @@
+{
+  "method": "nested",
+  "fleet": "acn_jpl",
+  "network": "ieee33",
+  "seed": 2,
+  "ablation": "none",
+  "episodes": null,
+  "config": "/home/user/nested-ev-grid/configs/base.yaml",
+  "out": "/home/user/nested-ev-grid/artifacts/runs/nested_acn_jpl_ieee33_none_s2",
+  "final_stage": 5,
+  "wall_s": 1538.3535468578339
+}

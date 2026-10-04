@@ -1,0 +1,12 @@
+{
+  "ieee33": {
+    "base_load_scale": 0.78,
+    "no_ev_min_voltage_pu": 0.9554697386848953,
+    "peak_load_mw": 3.3249902910147022
+  },
+  "ieee69": {
+    "base_load_scale": 0.75,
+    "no_ev_min_voltage_pu": 0.9555217493338155,
+    "peak_load_mw": 3.2720637709563616
+  }
+}

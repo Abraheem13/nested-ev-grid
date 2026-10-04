@@ -1,0 +1,11 @@
+{
+  "method": "ppo_lag",
+  "fleet": "residential",
+  "network": "ieee33",
+  "seed": 1,
+  "ablation": "none",
+  "episodes": null,
+  "config": "/home/user/nested-ev-grid/configs/base.yaml",
+  "out": "/home/user/nested-ev-grid/artifacts/runs/ppo_lag_residential_ieee33_none_s1",
+  "wall_s": 221.29187035560608
+}

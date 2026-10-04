@@ -8,7 +8,7 @@ Transactions on Sustainable Energy).
 
 ```bash
 pip install -r requirements.txt
-python reproduce.py --jobs 8        # data -> tests -> training -> evaluation -> paper
+python reproduce.py --jobs 8        # data -> tests -> training -> tariff calibration -> evaluation -> paper
 ```
 
 `reproduce.py` is resumable (finished jobs are skipped, interrupted training
