@@ -309,8 +309,7 @@ price paid by drivers.
 \label{sec:method}
 Fig.~\ref{fig:arch} shows the architecture. Each level is a decision process
 at its own rate whose environment includes the closed-loop behavior of the
-faster levels: Level~1 acts every hour, Level~2 every \SI{15}{min}, Level~3a
-every \SI{15}{min} and Level~3b every \SI{60}{s}.
+faster levels.
 
 \begin{figure*}[t]
 \centering
@@ -563,14 +562,13 @@ trained with \GTrainSeeds{} seeds (\GAuxSeeds{} in the ablations and
 generalization tests); each day's metric is averaged over seeds.
 We report means with 95\% bootstrap confidence intervals over days (10\,000
 resamples) and compare methods with Wilcoxon signed-rank tests on the paired
-daily differences, Holm-corrected across the comparison family. Design
-alternatives were screened beforehand on \GTuneValDays{} held-out 2023 days with a
-selection criterion fixed in advance (\texttt{TUNING.md} in the repository):
-serving each vehicle's planned slots first instead of least-laxity-first
-lowered the validation cost at S3 by up to \GTuneCostReductionMax\%,% claim: tune_plan_cheaper_S3
-\ but left \GTuneUnmetIncreaseMinSThree--\GTuneUnmetIncreaseMaxSThree\% more energy
-undelivered at S3 and \GTuneUnmetIncreaseMinSSeven--\GTuneUnmetIncreaseMaxSSeven\% more
-at S7,% claim: tune_plan_more_unmet
+daily differences, Holm-corrected across the comparison family. On
+\GTuneValDays{} held-out 2023 days and with a criterion fixed in advance
+(\texttt{TUNING.md}), serving planned slots first lowered the S3 cost by up to
+\GTuneCostReductionMax\%% claim: tune_plan_cheaper_S3
+\ but left \GTuneUnmetIncreaseMinSThree--\GTuneUnmetIncreaseMaxSThree\% (S3) and
+\GTuneUnmetIncreaseMinSSeven--\GTuneUnmetIncreaseMaxSSeven\% (S7) more energy
+undelivered,% claim: tune_plan_more_unmet
 \ so least-laxity-first allocation was kept.% claim: tune_llf_selected
 
 \section{Results}

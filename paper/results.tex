@@ -232,7 +232,6 @@ curtailment.% claim: sens_smaller_rating_more_curtailment
 \subsection{Training and computation}
 \label{sec:res-comp}
 Training one nested policy takes about \GTrainHoursNested~h on a single CPU
-core; the constrained-RL baselines are faster because they update once per day
-rather than every interval. The tariff
+core. The tariff
 calibration of Section~\ref{sec:method} moved the learned prices by at most
 \GCalibOffsetAbsmax~\euro/kWh.
