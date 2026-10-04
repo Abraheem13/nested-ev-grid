@@ -243,7 +243,7 @@ flow is solved every \SI{60}{s} of simulated time.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\columnwidth]{generated/fig_feeder_ieee33.pdf}
+\includegraphics[width=0.9\columnwidth]{generated/fig_feeder_ieee33.pdf}
 \caption{IEEE 33-bus feeder (MATPOWER data, open ties removed) with the five
 aggregator connection points.}
 \label{fig:feeder}
@@ -466,7 +466,7 @@ it under every baseline (``+L3'').
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.8\columnwidth]{generated/fig_l3_loop.pdf}
+\includegraphics[width=0.7\columnwidth]{generated/fig_l3_loop.pdf}
 \caption{Level-3b correction inside one \SI{60}{s} step.}
 \label{fig:l3}
 \end{figure}
@@ -574,18 +574,12 @@ daily differences, Holm-corrected across the comparison family.
 \section*{Data and Code Availability}
 The code, configuration, trained policies, evaluation logs and the script that
 regenerates every table, figure and number of this paper are available at
-\url{https://github.com/Abraheem13/nested-ev-grid}. Feeder data are from
-MATPOWER~\cite{zimmerman2011}. Day-ahead prices (ENTSO-E Transparency
-Platform~\cite{hirth2018}) and Pecan Street household loads~\cite{pecanstreet}
-are used as distributed with EV2Gym~\cite{orfanoudakis2025ev2gym}; ACN-Data
-sessions~\cite{lee2019acn} as distributed with SustainGym~\cite{yeh2023sustaingym}.
-The scripts download these pinned packages and verify every file by its
-SHA-256 checksum.
+\url{https://github.com/Abraheem13/nested-ev-grid}. All data are public
+(Section~\ref{sec:system}); the scripts download the pinned packages that
+distribute them and verify every file by its SHA-256 checksum.
 
 \section*{Acknowledgment}
-Household load data were provided by Pecan Street Inc.\ (Dataport). The
-authors thank the maintainers of ACN-Data, EV2Gym, SustainGym, MATPOWER and
-pandapower.
+Household load data were provided by Pecan Street Inc.\ (Dataport).
 
 \input{references.tex}
 

@@ -503,7 +503,7 @@ def figures(s, d, art, out):
         fig.legend(*ax[0].get_legend_handles_labels(), loc="lower center", ncol=5, frameon=False, fontsize=6.5,
                    bbox_to_anchor=(0.5, -0.02), handlelength=2.6)
         fig.tight_layout(rect=(0, 0.12, 1, 1))
-        fig.savefig(out / "fig_training.pdf")
+        fig.savefig(out / "fig_training.pdf", bbox_inches="tight")
         plt.close(fig)
 
 
@@ -602,6 +602,9 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
         N.add("gap nested pa max", max(gap_pa.values()), 1)
     C.add("l3_zero_viol_rules_main", maxv(["uncoordinated+L3", "tou+L3", "price_aware+L3", "lp_opf+L3"]) == 0.0)
     C.add("unc_violates_main", maxv(["uncoordinated"]) > 0)
+    l3_all = ["nested", "uncoordinated+L3", "tou+L3", "price_aware+L3", "lp_opf+L3"]
+    C.add("s6_l3_zero_viol", maxv(l3_all, scs=["S6"]) == 0.0, f"max {maxv(l3_all, scs=['S6'])}")
+    C.add("s7_l3_violations_remain", maxv(l3_all, scs=["S7"]) > 0, f"max {maxv(l3_all, scs=['S7'])}")
     nominal = [sc for sc in scen if sc != "S4"]           # S4 adds base-load forecast error
     l3_methods = ["uncoordinated+L3", "tou+L3", "price_aware+L3", "lp_opf+L3"]
     C.add("nested_zero_viol_nominal", maxv(["nested"], scs=nominal) == 0.0,
@@ -660,6 +663,8 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
             N.add(f"abl delta cost abs {v} {sc}", abs(100 * (r["cost_eur"] / base["cost_eur"] - 1)), 1)
             C.add(f"abl_{v}_costlier_{sc}", r["cost_eur"] > base["cost_eur"],
                   f"{r['cost_eur']:.1f} vs {base['cost_eur']:.1f}")
+            C.add(f"abl_{v}_cheaper_{sc}", r["cost_eur"] < base["cost_eur"],
+                  f"{r['cost_eur']:.1f} vs {base['cost_eur']:.1f}")
     # decomposition: each configuration relative to the plan executed without learning
     for sc in ("S3", "S7"):
         plan = get("plan+L3", sc, "decomp")
@@ -679,6 +684,65 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
             C.add(f"decomp_{mm}_costlier_than_plan_{sc}", r["cost_eur"] > plan["cost_eur"])
             C.add(f"decomp_{mm}_less_curt_than_plan_{sc}", r["curtailed_kwh"] < plan["curtailed_kwh"])
             C.add(f"decomp_{mm}_less_unmet_than_plan_{sc}", r["unmet_kwh"] < plan["unmet_kwh"])
+        # plan (no learning) versus the per-vehicle heuristic under stress
+    plan7, pa7 = get("plan+L3", "S7", "decomp"), get("price_aware+L3", "S7")
+    if plan7 is not None and pa7 is not None:
+        C.add("plan_less_unmet_than_pa_S7", plan7["unmet_kwh"] < pa7["unmet_kwh"],
+              f"{plan7['unmet_kwh']:.1f} vs {pa7['unmet_kwh']:.1f}")
+        N.add("reduction unmet plan pa S7", 100 * (1 - plan7["unmet_kwh"] / pa7["unmet_kwh"]), 0)
+    # generalisation settings (one row per setting, S3)
+    gen_ok_v, gen_between, gen_sq = True, True, {}
+    for variant, fleet, net, split, name in GENERAL:
+        g = {m: row(s, variant, m, "S3", fleet, net, split) for m in ("uncoordinated", "price_aware+L3", "nested")}
+        if any(v is None for v in g.values()):
+            continue
+        gen_ok_v &= g["nested"]["violation_rate_pct"] == 0.0
+        gen_between &= g["price_aware+L3"]["cost_eur"] < g["nested"]["cost_eur"] < g["uncoordinated"]["cost_eur"]
+        key = name.replace(",", "").replace("-", " ")
+        N.add(f"gen saving nested unc {key}", 100 * (1 - g["nested"]["cost_eur"] / g["uncoordinated"]["cost_eur"]), 1)
+        N.add(f"gen gap nested pa {key}", 100 * (g["nested"]["cost_eur"] / g["price_aware+L3"]["cost_eur"] - 1), 1)
+        N.add(f"gen sq pa {key}", g["price_aware+L3"]["service_quality"], 3)
+        gen_sq[key] = (round(float(g["nested"]["service_quality"]), 3), round(float(g["price_aware+L3"]["service_quality"]), 3))
+    sav_g = [100 * (1 - row(s, v, "nested", "S3", f, n, sp)["cost_eur"] / row(s, v, "uncoordinated", "S3", f, n, sp)["cost_eur"])
+             for v, f, n, sp, _ in GENERAL if row(s, v, "nested", "S3", f, n, sp) is not None
+             and row(s, v, "uncoordinated", "S3", f, n, sp) is not None]
+    gap_g = [100 * (row(s, v, "nested", "S3", f, n, sp)["cost_eur"] / row(s, v, "price_aware+L3", "S3", f, n, sp)["cost_eur"] - 1)
+             for v, f, n, sp, _ in GENERAL if row(s, v, "nested", "S3", f, n, sp) is not None
+             and row(s, v, "price_aware+L3", "S3", f, n, sp) is not None]
+    if sav_g:
+        N.add("gen saving min", min(sav_g), 1)
+        N.add("gen saving max", max(sav_g), 1)
+    if gap_g:
+        N.add("gen gap min", min(gap_g), 1)
+        N.add("gen gap max", max(gap_g), 1)
+    C.add("general_nested_zero_viol", gen_ok_v)
+    C.add("general_nested_between_pa_and_unc", gen_between)
+    C.add("general_nested_sq_below_pa_caltech", any(k.endswith("ACN Caltech") and v[0] < v[1] for k, v in gen_sq.items()),
+          json.dumps(gen_sq))
+    # Level-3 sensitivity: inverter rating
+    s10, s12, s14 = get("nested", "S3", "sens_S10"), get("nested", "S3"), get("nested", "S3", "sens_S14")
+    if s10 is not None and s14 is not None:
+        C.add("sens_smaller_rating_more_curtailment", s10["curtailed_kwh"] > s12["curtailed_kwh"] > s14["curtailed_kwh"],
+              f"{s10['curtailed_kwh']:.1f} > {s12['curtailed_kwh']:.1f} > {s14['curtailed_kwh']:.1f}")
+        costs = [r["cost_eur"] for r in (s10, s12, s14, get("nested", "S3", "sens_delta0.0005"),
+                                         get("nested", "S3", "sens_delta0.002")) if r is not None]
+        N.add("sens cost range", 100 * (max(costs) / min(costs) - 1), 2)
+        C.add("sens_cost_insensitive", 100 * (max(costs) / min(costs) - 1) < 0.5)
+        sens_rows = [r for r in (s10, s14, get("nested", "S3", "sens_delta0.0005"), get("nested", "S3", "sens_delta0.002"))
+                     if r is not None]
+        C.add("sens_zero_viol", all(r["violation_rate_pct"] == 0.0 for r in sens_rows))
+        d05, d20 = get("nested", "S3", "sens_delta0.0005"), get("nested", "S3", "sens_delta0.002")
+        if d05 is not None and d20 is not None:
+            C.add("sens_larger_margin_more_activation",
+                  d05["q_activation_pct"] < s12["q_activation_pct"] < d20["q_activation_pct"])
+    # ablations: violations without Level 3
+    for v in ("abl_no_l3", "ablation"):
+        r = get("nested-noL3", "S3", v)
+        if r is not None:
+            C.add(f"{v}_violates_S3", r["violation_rate_pct"] > 0)
+    nb = get("nested", "S3", "abl_no_behavior")
+    if nb is not None:
+        C.add("abl_no_behavior_higher_sq_S3", nb["service_quality"] > get("nested", "S3")["service_quality"])
         # stress: nested versus the price-aware heuristic with Level 3
     for sc in ("S5", "S7"):
         nst, pa = get("nested", sc), get("price_aware+L3", sc)
