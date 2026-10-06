@@ -35,3 +35,7 @@ paper/*.synctex.gz
 .DS_Store
 .vscode/
 .idea/
+
+# Journal submission package (python scripts/make_submission.py)
+paper/submission/
+paper/submission.zip
