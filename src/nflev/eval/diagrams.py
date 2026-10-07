@@ -98,170 +98,150 @@ def fig_feeder(cfg: dict, network: str, out: pathlib.Path) -> None:
     plt.close(fig)
 
 
-def _box(ax, xy, w, h, text, fc, fs=7):
-    from matplotlib.patches import FancyBboxPatch
-    ax.add_patch(FancyBboxPatch(xy, w, h, boxstyle="round,pad=0.02,rounding_size=0.05", fc=fc, ec="k", lw=0.6))
-    ax.text(xy[0] + w / 2, xy[1] + h / 2, text, ha="center", va="center", fontsize=fs, linespacing=1.15)
+# Diagrams in a plain technical style: black rectangles on white, thin black
+# arrows, labels on the arrows, dashed grey boundaries. Axis units are inches,
+# and every figure is drawn at its printed size.
+LW, FS, GREY = 0.7, 7.0, "#6e6e6e"
 
 
-def _arrow(ax, a, b, color="k", style="-|>", ls="-"):
-    ax.annotate("", xy=b, xytext=a, arrowprops=dict(arrowstyle=style, color=color, lw=0.8, linestyle=ls))
-
-
-def fig_architecture(out: pathlib.Path) -> None:
-    """Drawn at its printed size (text width); axis units are inches."""
+def _canvas(w, h):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     plt.rcParams.update(FONT)
-    W, H = 7.16, 1.96
-    fig = plt.figure(figsize=(W, H))
+    fig = plt.figure(figsize=(w, h))
     ax = fig.add_axes((0, 0, 1, 1))
-    ax.set_xlim(0, W)
-    ax.set_ylim(0, H)
+    ax.set_xlim(0, w)
+    ax.set_ylim(0, h)
     ax.set_axis_off()
-    fs = 7
-    rows = {"l1": 1.42, "l2": 0.66, "l3": 0.04}
-    h = {"l1": 0.38, "l2": 0.62, "l3": 0.44}
-    x_obs, w_obs = 0.02, 1.62
-    x_lev, w_lev = 1.86, 1.92
-    x_mid, w_mid = 4.00, 1.62
-    x_fdr, w_fdr = 5.84, 1.28
-    _box(ax, (x_obs, rows["l1"]), w_obs, h["l1"], "System state (11-d): voltages,\nsubstation power, prices, fleet", "#eef3fb", fs)
-    _box(ax, (x_obs, rows["l2"]), w_obs, h["l2"], "Aggregator state (28-d):\nbus voltage, 12 h of prices,\ncorridor, need by laxity,\nplan set point $u^0_k$", "#eef3fb", fs)
-    _box(ax, (x_obs, rows["l3"]), w_obs, h["l3"], "Measured bus voltages,\ncharger powers", "#eef3fb", fs)
-    _box(ax, (x_lev, rows["l1"]), w_lev, h["l1"], "Level 1: pricing (PPO, 1 h)\ncorridor $[p^{\\min}_t, p^{\\max}_t]$", "#d6e6f8", fs)
-    _box(ax, (x_lev, rows["l2"]), w_lev, h["l2"], "Level 2: dispatch (DDPG, 15 min)\nshared actor-critic; residual\non plan $u^0_k$: set point $u_k$,\nexecution price $p_k$", "#dceedd", fs)
-    _box(ax, (x_lev, rows["l3"]), w_lev, h["l3"], "Level 3: voltage correction\n(non-learned, 60 s)", "#fde6cf", fs)
-    _box(ax, (x_mid, rows["l2"]), w_mid, h["l2"], "Drivers accept or decline $p_k$;\nleast-laxity-first allocation\nwith deadline guard, within\ncharger and transformer limits", "#f3f3f3", fs)
-    _box(ax, (x_mid, rows["l3"]), w_mid, h["l3"], "$Q_i^{\\max}=\\sqrt{S_i^2-P_i^2}$\nsecant step,\ncurtailment fallback", "#fbe0e0", fs)
-    _box(ax, (x_fdr, rows["l3"]), w_fdr, rows["l2"] + h["l2"] - rows["l3"], "Radial feeder\nIEEE 33/69-bus\nAC power flow\nevery 60 s", "#ececec", fs)
-    for key in rows:
-        y = rows[key] + h[key] / 2
-        _arrow(ax, (x_obs + w_obs, y), (x_lev, y))
-    xc = x_lev + w_lev / 2
-    _arrow(ax, (xc, rows["l1"]), (xc, rows["l2"] + h["l2"]), "#0072b2")
-    _arrow(ax, (xc, rows["l2"]), (xc, rows["l3"] + h["l3"]), "#0072b2")
-    y2 = rows["l2"] + h["l2"] / 2
-    _arrow(ax, (x_lev + w_lev, y2), (x_mid, y2), "#0072b2")
-    _arrow(ax, (x_mid + w_mid, y2), (x_fdr, y2), "#0072b2")
-    y3 = rows["l3"] + h["l3"] / 2
-    _arrow(ax, (x_lev + w_lev, y3), (x_mid, y3), "#e69f00")
-    _arrow(ax, (x_mid + w_mid, y3), (x_fdr, y3), "#e69f00")
-    yt = rows["l1"] + h["l1"] / 2
-    xf = x_fdr + w_fdr / 2
-    _arrow(ax, (xf, rows["l2"] + h["l2"]), (xf, yt), "#c00000", style="-", ls="--")
-    _arrow(ax, (xf, yt), (x_lev + w_lev, yt), "#c00000", ls="--")
-    ax.text((x_lev + w_lev + xf) / 2, yt + 0.05, "voltages, cost, curtailment, acceptance", fontsize=fs,
-            color="#c00000", ha="center", va="bottom")
-    ax.text(x_obs, H - 0.02, "black: observations    blue: set points    orange: reactive set points    "
-            "red dashed: measurements fed back", fontsize=fs, va="top")
+    return fig, ax
+
+
+def _rect(ax, x, y, w, h, text, fs=FS):
+    from matplotlib.patches import Rectangle
+    ax.add_patch(Rectangle((x, y), w, h, fc="white", ec="black", lw=LW, zorder=2))
+    ax.text(x + w / 2, y + h / 2, text, ha="center", va="center", fontsize=fs, linespacing=1.15, zorder=3)
+    return {"l": x, "r": x + w, "b": y, "t": y + h, "cx": x + w / 2, "cy": y + h / 2}
+
+
+def _path(ax, pts, dashed=False, head=True):
+    """Polyline through pts with an arrowhead at the last point."""
+    ls = (0, (3, 2)) if dashed else "-"
+    xs, ys = zip(*pts)
+    ax.plot(xs[:-1] + (xs[-1],), ys[:-1] + (ys[-1],), color="black", lw=LW, ls=ls, zorder=1,
+            solid_capstyle="butt")
+    if head:
+        ax.annotate("", xy=pts[-1], xytext=pts[-2], zorder=4,
+                    arrowprops=dict(arrowstyle="-|>,head_length=0.45,head_width=0.18", color="black", lw=LW,
+                                    shrinkA=0, shrinkB=0))
+
+
+def _label(ax, x, y, text, ha="left", va="center", fs=FS - 0.5, color="black"):
+    ax.text(x, y, text, ha=ha, va=va, fontsize=fs, color=color, zorder=5)
+
+
+def _boundary(ax, x, y, w, h, label, where="below"):
+    from matplotlib.patches import Rectangle
+    ax.add_patch(Rectangle((x, y), w, h, fill=False, ec=GREY, lw=0.6, ls=(0, (4, 2.5)), zorder=0))
+    if where == "below":
+        _label(ax, x, y - 0.07, label, va="top", color=GREY, fs=FS)
+    else:
+        _label(ax, x, y + h + 0.05, label, va="bottom", color=GREY, fs=FS)
+
+
+def fig_architecture(out: pathlib.Path) -> None:
+    """Nested controller and the simulated environment (text width)."""
+    fig, ax = _canvas(7.16, 1.98)
+    pr = _rect(ax, 0.02, 1.24, 0.82, 0.36, "day-ahead\nprices")
+    pl = _rect(ax, 0.02, 0.67, 0.82, 0.36, "planning\nprior $u^0_k$")
+    l1 = _rect(ax, 1.22, 1.24, 1.86, 0.36, "Level 1: price corridor\n(PPO, hourly)")
+    l2 = _rect(ax, 1.22, 0.67, 1.86, 0.36, "Level 2: residual dispatch\n(shared DDPG, 15 min)")
+    l3 = _rect(ax, 1.22, 0.10, 1.86, 0.36, "Level 3: reactive correction\n(non-learned, 60 s)")
+    dr = _rect(ax, 4.42, 1.24, 1.72, 0.36, "drivers accept or\ndecline $p_k$ (2)")
+    al = _rect(ax, 4.42, 0.67, 1.72, 0.36, "least-laxity-first allocation\nwith deadline guard")
+    fd = _rect(ax, 4.42, 0.10, 1.72, 0.36, "radial feeder,\nAC power flow (1)")
+    _boundary(ax, 1.10, 0.02, 2.10, 1.66, "nested controller", where="above")
+    _boundary(ax, 4.30, 0.02, 1.96, 1.66, "simulated environment", where="above")
+    _path(ax, [(pr["r"], pr["cy"]), (l1["l"], l1["cy"])])
+    _path(ax, [(pr["cx"], pr["b"]), (pl["cx"], pl["t"])])
+    _path(ax, [(pl["r"], pl["cy"]), (l2["l"], l2["cy"])])
+    _path(ax, [(l1["cx"], l1["b"]), (l2["cx"], l2["t"])])
+    _label(ax, l1["cx"] + 0.05, (l1["b"] + l2["t"]) / 2, "corridor $[p^{\\min}_t, p^{\\max}_t]$")
+    yp = l2["cy"] + 0.1
+    _path(ax, [(l2["r"], yp), (3.62, yp), (3.62, dr["cy"]), (dr["l"], dr["cy"])])
+    _label(ax, 3.67, dr["cy"] + 0.08, "price $p_k$")
+    ys = l2["cy"] - 0.08
+    _path(ax, [(l2["r"], ys), (al["l"], ys)])
+    _label(ax, 3.67, ys - 0.09, "set point $u_k$")
+    _path(ax, [(dr["cx"], dr["b"]), (al["cx"], al["t"])])
+    _label(ax, dr["cx"] + 0.05, (dr["b"] + al["t"]) / 2, "accepting vehicles")
+    _path(ax, [(al["cx"], al["b"]), (fd["cx"], fd["t"])])
+    _label(ax, al["cx"] + 0.05, (al["b"] + fd["t"]) / 2, "charging power $c_i$")
+    _path(ax, [(l3["r"], fd["cy"] + 0.08), (fd["l"], fd["cy"] + 0.08)])
+    _label(ax, 3.2, fd["cy"] + 0.16, "reactive power $Q_i$; curtailment", va="bottom")
+    _path(ax, [(fd["l"], fd["cy"] - 0.08), (l3["r"], fd["cy"] - 0.08)], dashed=True)
+    _label(ax, 3.2, fd["cy"] - 0.15, "measured bus voltages", va="top")
+    yt = 1.92
+    _path(ax, [(fd["r"], fd["cy"]), (6.62, fd["cy"]), (6.62, yt), (l1["cx"], yt), (l1["cx"], l1["t"])], dashed=True)
+    _label(ax, 6.67, 0.95, "measured\nstates\n$s^{(1)}_t$, $s^{(2)}_{\\tau,k}$", va="center")
     fig.savefig(out / "fig_architecture.pdf")
+    import matplotlib.pyplot as plt
     plt.close(fig)
 
 
 def fig_l3_loop(out: pathlib.Path) -> None:
-    """Control flow of nflev.env.qcontrol.ReactiveController.correct, drawn at its
-    printed size (one column); axis units are inches."""
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    plt.rcParams.update(FONT)
-    W, H = 3.45, 1.72
-    fig = plt.figure(figsize=(W, H))
-    ax = fig.add_axes((0, 0, 1, 1))
-    ax.set_xlim(0, W)
-    ax.set_ylim(0, H)
-    ax.set_axis_off()
-    fs = 7
-    x0, w, hh = 0.62, 1.62, 0.22
-    ys = {"pf": 1.58, "chk": 1.24, "hr": 0.90, "inj": 0.54, "re": 0.15}
-    _box(ax, (x0, ys["pf"] - hh / 2), w, hh, "Solve AC power flow", "#ececec", fs)
-    _box(ax, (x0, ys["chk"] - hh / 2), w, hh, "$\\min_n V_n < \\underline{V}+\\delta$ ?", "#fff4cc", fs)
-    _box(ax, (x0, ys["hr"] - hh / 2), w, hh, "Reactive headroom left?", "#fff4cc", fs)
-    _box(ax, (x0, ys["inj"] - 0.15), w, 0.30, "Inject $Q$: proportional step,\nthen secant step", "#fde6cf", fs)
-    _box(ax, (x0, ys["re"] - hh / 2), w, hh, "Re-solve power flow", "#ececec", fs)
-    xs, ws = 2.52, 0.91
-    _box(ax, (xs, ys["inj"] - 0.22), ws, 0.44, "Curtail EV power,\nmost at the most\ndepressed bus", "#fbe0e0", fs)
-    cx = x0 + w / 2
-    _arrow(ax, (cx, ys["pf"] - hh / 2), (cx, ys["chk"] + hh / 2))
-    _arrow(ax, (cx, ys["chk"] - hh / 2), (cx, ys["hr"] + hh / 2))
-    _arrow(ax, (cx, ys["hr"] - hh / 2), (cx, ys["inj"] + 0.15))
-    _arrow(ax, (cx, ys["inj"] - 0.15), (cx, ys["re"] + hh / 2))
-    ax.text(cx + 0.04, (ys["chk"] + ys["hr"]) / 2, "yes", fontsize=fs, va="center")
-    ax.text(cx + 0.04, (ys["hr"] + ys["inj"] + 0.04) / 2, "yes", fontsize=fs, va="center")
-    _arrow(ax, (x0 + w, ys["chk"]), (x0 + w + 0.3, ys["chk"]))
-    ax.text(x0 + w + 0.33, ys["chk"], "no: done", fontsize=fs, va="center")
-    ax.annotate("", xy=(xs + ws / 2, ys["inj"] + 0.22), xytext=(x0 + w, ys["hr"]),
-                arrowprops=dict(arrowstyle="-|>", lw=0.8, connectionstyle="angle,angleA=0,angleB=90,rad=0"))
-    ax.text(x0 + w + 0.08, ys["hr"] + 0.03, "no", fontsize=fs, va="bottom")
-    ax.annotate("", xy=(x0 + w, ys["re"]), xytext=(xs + ws / 2, ys["inj"] - 0.22),
-                arrowprops=dict(arrowstyle="-|>", lw=0.8, connectionstyle="angle,angleA=90,angleB=0,rad=0"))
-    ax.annotate("", xy=(x0, ys["chk"]), xytext=(x0, ys["re"]),
-                arrowprops=dict(arrowstyle="-|>", lw=0.8,
-                                connectionstyle="arc,angleA=180,angleB=180,armA=8,armB=8,rad=0"))
-    ax.text(0.01, (ys["chk"] + ys["re"]) / 2, "repeat:\n$\\leq$8 power\nflows (+12\nwhen\ncurtailing)",
-            fontsize=fs, va="center", linespacing=1.1)
+    """Control flow of nflev.env.qcontrol.ReactiveController.correct (one column)."""
+    fig, ax = _canvas(3.45, 1.6)
+    x0, w, h = 0.70, 1.55, 0.2
+    pf = _rect(ax, x0, 1.37, w, h, "solve AC power flow")
+    ck = _rect(ax, x0, 1.06, w, h, "$\\min_n V_n < \\underline{V} + \\delta$ ?")
+    hr = _rect(ax, x0, 0.75, w, h, "reactive headroom left?")
+    inj = _rect(ax, x0, 0.39, w, 0.26, "inject $Q$: proportional step,\nthen secant step")
+    rs = _rect(ax, x0, 0.06, w, h, "re-solve power flow")
+    cu = _rect(ax, 2.55, 0.29, 0.86, 0.48, "curtail EV power,\nmost at the most\ndepressed bus")
+    for a, b in ((pf, ck), (ck, hr), (hr, inj), (inj, rs)):
+        _path(ax, [(a["cx"], a["b"]), (b["cx"], b["t"])])
+    _label(ax, ck["cx"] + 0.05, (ck["b"] + hr["t"]) / 2, "YES", fs=5.8)
+    _label(ax, hr["cx"] + 0.05, (hr["b"] + inj["t"]) / 2, "YES", fs=5.8)
+    _path(ax, [(ck["r"], ck["cy"]), (ck["r"] + 0.32, ck["cy"])])
+    _label(ax, ck["r"] + 0.36, ck["cy"], "NO: done", fs=5.8)
+    _path(ax, [(hr["r"], hr["cy"]), (cu["cx"], hr["cy"]), (cu["cx"], cu["t"])])
+    _label(ax, hr["r"] + 0.05, hr["cy"] + 0.06, "NO", va="bottom", fs=5.8)
+    _path(ax, [(cu["cx"], cu["b"]), (cu["cx"], rs["cy"]), (rs["r"], rs["cy"])])
+    _path(ax, [(rs["l"], rs["cy"]), (x0 - 0.12, rs["cy"]), (x0 - 0.12, ck["cy"]), (ck["l"], ck["cy"])])
+    _label(ax, 0.02, (rs["cy"] + ck["cy"]) / 2, "repeat:\n$\\leq$8 power\nflows\n(+12 when\ncurtailing)",
+           fs=FS - 0.5)
     fig.savefig(out / "fig_l3_loop.pdf")
+    import matplotlib.pyplot as plt
     plt.close(fig)
 
 
 def fig_pipeline(cfg: dict, out: pathlib.Path, n_seeds: int, n_aux: int) -> None:
-    """Study pipeline from public data to every reported number (reproduce.py), drawn
-    at its printed size (one column); counts are read from the configuration."""
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    from matplotlib.patches import FancyBboxPatch
-    plt.rcParams.update(FONT)
-    W, H = 3.45, 2.42
-    fig = plt.figure(figsize=(W, H))
-    ax = fig.add_axes((0, 0, 1, 1))
-    ax.set_xlim(0, W)
-    ax.set_ylim(0, H)
-    ax.set_axis_off()
-    fs = 6.6
+    """Study pipeline from public data to every reported number (one column);
+    counts are read from the configuration and the stored runs."""
     d, ev, tr = cfg["data"], cfg["evaluation"], cfg["training"]
     yrs = lambda k: ", ".join(str(y) for y in d[k])  # noqa: E731
-    bands = [
-        ("Data", "#dfe9f7", "#2a5a9a",
-         [f"ENTSO-E prices\n{yrs('alt_regime_years')}, {yrs('train_years')}, {yrs('test_years')}",
-          "Pecan Street\nhousehold load", "ACN-Data\nsessions", "MATPOWER\n33-/69-bus"]),
-        ("Simulation", "#ece5f5", "#5b3f8c",
-         [f"Fleets\n({cfg['aggregators']['households']} households)", "Driver acceptance\n(Fishbein model)",
-          f"AC power flow\nevery {cfg['simulation']['resolution_s']} s"]),
-        ("Training", "#fbe8d6", "#a2561b",
-         [f"Curriculum,\n{tr['episodes']} episodes", f"{n_seeds} seeds\n({n_aux} for ablations)",
-          "Tariff calibration\n(training days)"]),
-        ("Evaluation", "#dcefe2", "#2c7a4b",
-         [f"{ev['episodes']} held-out\ntest days, paired", f"S1–S{len(ev['scenarios'])},\n8 baselines (+L3)",
-          "Bootstrap CI,\nHolm–Wilcoxon"]),
-        ("Outputs", "#f8dede", "#a12a2a",
-         ["Tables, figures and number macros; every claim checked on the data\n(one command: reproduce.py)"]),
-    ]
-    x0, lab_w, gap, top = 0.03, 0.5, 0.06, H - 0.02
-    bh = [0.43, 0.42, 0.42, 0.42, 0.32]
-    y = top
-    centers = []
-    for (name, tint, edge, boxes), h in zip(bands, bh):
-        y -= h
-        ax.add_patch(FancyBboxPatch((x0, y), W - 2 * x0, h, boxstyle="round,pad=0,rounding_size=0.04",
-                                    fc=tint, ec="none"))
-        ax.text(x0 + 0.04, y + h / 2, name, fontsize=7, fontweight="bold", color=edge, va="center", ha="left")
-        n = len(boxes)
-        bx0 = x0 + lab_w + 0.08
-        bw = (W - x0 - 0.05 - bx0 - (n - 1) * 0.05) / n
-        for i, t in enumerate(boxes):
-            bx = bx0 + i * (bw + 0.05)
-            ax.add_patch(FancyBboxPatch((bx, y + 0.05), bw, h - 0.1, boxstyle="round,pad=0,rounding_size=0.03",
-                                        fc="white", ec=edge, lw=0.7))
-            ax.text(bx + bw / 2, y + h / 2, t, fontsize=fs, ha="center", va="center", linespacing=1.1)
-        centers.append((y, h))
-        y -= gap
-    for (y1, h1), (y2, h2) in zip(centers[:-1], centers[1:]):
-        ax.annotate("", xy=(W / 2 + 0.25, y2 + h2), xytext=(W / 2 + 0.25, y1),
-                    arrowprops=dict(arrowstyle="-|>", color="#52514e", lw=0.9))
+    fig, ax = _canvas(3.45, 2.06)
+    x, w, h, g = 0.62, 2.45, 0.27, 0.13
+    ys = [1.72, 1.32, 0.92, 0.52, 0.12]
+    texts = ["public data: ENTSO-E prices, Pecan Street loads,\nACN-Data sessions, MATPOWER feeders",
+             f"quasi-static simulation every {cfg['simulation']['resolution_s']} s: fleets,\ndriver acceptance, AC power flow",
+             f"training on {yrs('train_years')} days: {tr['episodes']} episodes, {n_seeds} seeds\n"
+             f"({n_aux} for ablations); tariff calibration",
+             f"paired evaluation: {ev['episodes']} held-out {yrs('test_years')} days,\n"
+             f"S1–S{len(ev['scenarios'])}, 8 baselines with and without Level 3",
+             "bootstrap intervals, Holm–Wilcoxon tests;\ntables, figures, number macros, checked claims"]
+    boxes = [_rect(ax, x, y, w, h, t, fs=FS - 0.3) for y, t in zip(ys, texts)]
+    edge = ["", "episodes", "frozen policies", "daily results"]
+    for (a, b), lab in zip(zip(boxes[:-1], boxes[1:]), edge):
+        _path(ax, [(a["cx"], a["b"]), (b["cx"], b["t"])])
+        if lab:
+            _label(ax, a["cx"] + 0.05, (a["b"] + b["t"]) / 2, lab, fs=FS - 0.8)
+    _boundary(ax, x - 0.1, 0.05, w + 0.2, ys[0] + h - 0.05 + 0.05, "", where="below")
+    ax.text(x - 0.16, (0.05 + ys[0] + h) / 2, "one command: reproduce.py", rotation=90, ha="right", va="center",
+            fontsize=FS, color=GREY)
     fig.savefig(out / "fig_pipeline.pdf")
+    import matplotlib.pyplot as plt
     plt.close(fig)
 
 

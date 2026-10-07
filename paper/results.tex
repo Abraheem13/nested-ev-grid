@@ -2,6 +2,9 @@
 % qualitative statement tagged "% claim: <name>" is checked against
 % generated/claims.json by scripts/check_paper.py.
 
+We compare all methods in the main case and on the grid side, vary the
+penetration, test significance, and then stress and dissect the controller.
+
 \begin{table*}[t]
 \centering
 \caption{Results at S3 (240 Vehicles, 80\% Penetration; IEEE 33-Bus; \GEvalDays{} Held-Out Days; Learned Methods Averaged Over \GTrainSeedsWordCap{} Training Seeds). Cost: Mean Daily Cost With 95\% Bootstrap Confidence Interval; Cost/kWh and Retail in \euro/kWh; Other Metrics as Defined in Section~\ref{sec:metrics}; +L3: Level~3 Attached}
@@ -12,16 +15,17 @@
 
 \subsection{Main Comparison}
 \label{sec:res-main}
-Table~\ref{tab:main} compares all methods at S3. Uncoordinated charging costs
+The main case, \GPenSThree\% penetration on the 33-bus feeder (S3), is compared in
+Table~\ref{tab:main}. Uncoordinated charging costs
 \euro\GUncoordinatedSThreeCost{} per day and violates the voltage floor in
 \GUncoordinatedSThreeViol\% of the 60-s steps.% claim: unc_violates_main
 \ Attaching Level~3 removes every violation of the rule-based methods at
 S1, S2, S3 and S5% claim: l3_zero_viol_rules_nominal
 \ and changes their cost by at most \GLThreeCostChangeMax\%.% claim: l3_negligible_cost_main
-\ The perfect-foresight LP-OPF is the cheapest method
-(\euro\GLpOpfLThreeSThreeCost).% claim: lp_cheapest_S3
-\ Among the methods without perfect foresight, the price-aware heuristic is
-cheapest (\euro\GPriceAwareLThreeSThreeCost).% claim: pa_cheapest_nonoracle_S3
+\ The perfect-foresight LP-OPF is cheapest
+(\euro\GLpOpfLThreeSThreeCost),% claim: lp_cheapest_S3
+\ followed by the price-aware heuristic, the cheapest method without foresight
+(\euro\GPriceAwareLThreeSThreeCost).% claim: pa_cheapest_nonoracle_S3
 \ The nested controller costs \euro\GNestedSThreeCost, which is
 \GSavingNestedUncSThree\% less than uncoordinated charging and
 \GGapNestedPaSThree\% more than the price-aware heuristic,% claim: pa_cheaper_than_nested_all_main
@@ -49,7 +53,8 @@ learned controller,
 
 \subsection{Grid Impact and Daily Operation}
 \label{sec:res-grid}
-Table~\ref{tab:grid} views S3 from the grid side. The nested controller lowers
+For a distribution operator, peaks and corrective effort matter as much as
+cost; Table~\ref{tab:grid} views S3 from this side. The nested controller lowers
 the mean daily peak of the feeder load by \GPeakFeederRedNestedUncSThree\%
 relative to uncoordinated charging and by \GPeakFeederRedNestedPaSThree\%
 relative to the price-aware heuristic;% claim: nested_lower_peak_feeder_than_unc_pa_S3
@@ -97,7 +102,8 @@ injection;% claim: profile_coordinated_no_l3
 
 \subsection{Penetration and Base-Load Deviation}
 \label{sec:res-scen}
-Table~\ref{tab:scenarios} and Fig.~\ref{fig:scenarios} extend the comparison
+Whether these results hold as more vehicles connect is shown by
+Table~\ref{tab:scenarios} and Fig.~\ref{fig:scenarios}, which extend the comparison
 to S1--S5. Without Level~3, violations of uncoordinated and TOU charging
 grow with penetration, up to \GViolUncMax\% and \GViolTouMax\%.% claim: tou_violates_main
 \ Without base-load deviation (S1, S2, S3, S5) the nested controller and
@@ -126,7 +132,8 @@ heuristic, and it stays below every learned baseline by at least
 
 \subsection{Statistical Comparison}
 \label{sec:res-stats}
-Table~\ref{tab:stats} compares like with like: every baseline has Level~3
+Differences of a few percent need a significance test. Table~\ref{tab:stats}
+compares like with like: every baseline has Level~3
 attached. Without it, the mean differences change by at most
 \euro\GStatsLThreeDiffMax{} and the same cost differences are
 significant.% claim: stats_l3_same_cost_significance
@@ -164,7 +171,8 @@ baselines.% claim: seed_std_nested_smallest_S3
 
 \subsection{Level~3 Under Stress}
 \label{sec:res-stress}
-In S6, after an hour without charging in the evening peak, every controller
+Two stress tests probe the limits of Level~3. In S6, after an hour without
+charging in the evening peak, every controller
 with Level~3 in Table~\ref{tab:stress} keeps the floor.% claim: s6_l3_zero_viol
 \ S7 exceeds what the reduced reactive capability can correct: all methods
 except the perfect-foresight LP-OPF keep some violations.% claim: s7_only_lp_zero_viol
@@ -189,7 +197,8 @@ except the perfect-foresight LP-OPF keep some violations.% claim: s7_only_lp_zer
 
 \subsection{Contribution of the Learned Levels}
 \label{sec:res-decomp}
-Table~\ref{tab:decomp} separates the learned levels (Level~3 active).
+To see where these differences come from, Table~\ref{tab:decomp} separates
+the learned levels (Level~3 active).
 Executed without learning, the plan costs
 \GDecompCostVsPlanAbsPriceAwareLThreeSThree\% more at S3 than the per-vehicle
 price-aware heuristic,% claim: decomp_price_aware_L3_cheaper_than_plan_S3
@@ -221,7 +230,7 @@ undelivered than the per-vehicle heuristic in S7,% claim: plan_less_unmet_than_p
 
 \subsection{Ablations}
 \label{sec:res-abl}
-Table~\ref{tab:ablation} removes one component at a time; a cost difference
+Each component is then removed in turn (Table~\ref{tab:ablation}); a cost difference
 is called resolved when the per-seed means (\GAuxSeedsWord{} seeds) do not
 overlap with those of the complete framework. The planning
 prior is resolved at S3 and S5: learning the dispatch from scratch raises the
@@ -272,7 +281,8 @@ steps,% claim: abl_no_l3_violates_S3
 
 \subsection{Generalization}
 \label{sec:res-gen}
-Table~\ref{tab:general} repeats S3 on the 69-bus feeder, on recorded sessions
+To test transfer beyond the training setting, Table~\ref{tab:general} repeats
+S3 on the 69-bus feeder, on recorded sessions
 from two workplace sites and on 2019 days (with the policies trained on 2023
 days). In every setting the
 nested controller costs \GGenSavingMin\%--\GGenSavingMax\% less than
@@ -289,7 +299,8 @@ most \GGenSqCaltechMax).% claim: gen_caltech_sq_lowest_all
 
 \subsection{Level~3 Parameters}
 \label{sec:res-sens}
-Varying the correction margin ($\delta=0.0005$, $0.001$ and $0.002\pu$) and
+Finally, Level~3 has two parameters. Varying the correction margin
+($\delta=0.0005$, $0.001$ and $0.002\pu$) and
 the inverter rating ($S_i=10$, 12 and \SI{14}{kVA}, where \SI{10}{kVA}
 emulates chargers with reduced reactive capability) at S3 causes no
 violations% claim: sens_zero_viol

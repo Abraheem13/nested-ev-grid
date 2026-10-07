@@ -1,3 +1,6 @@
+Some conclusions are firmer than others; we discuss what learning
+contributes, where the voltage correction applies and what limits the findings.
+
 \subsection{Role of Learning}
 \label{sec:disc-learning}
 At nominal load, learning does not beat a well-designed rule on cost: the
@@ -30,18 +33,13 @@ service-transformer and secondary drops, switching transients and sub-cycle
 dynamics are outside the scope, as in any quasi-static study.
 
 \subsection{Assumptions and Limitations}
-\emph{Information.} The plan, the learned agents and the heuristic know each
+\emph{Information:} the plan, the learned agents and the heuristic know each
 plugged-in vehicle's departure and need, as in managed-charging programs where
-drivers enter them~\cite{lee2019acn}, but not future arrivals; only the LP-OPF
-sees the whole day.
-\emph{Network.} The feeders are balanced, radial and single-phase equivalent;
-unbalanced three-phase operation can change the voltage sensitivities on which
-the correction step relies.
-\emph{Behavior.} The acceptance model~\eqref{eq:fishbein} is stylized. The
-voltage layer does not depend on it, but the value of price signals does.
-\emph{Fleets.} The residential fleet is synthetic with stated parameters; the
-ACN experiments use recorded sessions from workplace sites.
-\emph{Data.} Loads (United States) and prices (Netherlands) come from
-different systems and give realistic daily shapes, not one utility; training
-and test days share the base-load profile. Structural market change is tested
-only through the 2019 regime.
+drivers enter them~\cite{lee2019acn}, but not future arrivals.
+\emph{Network:} the feeders are balanced, radial and single-phase equivalent;
+unbalance can change the sensitivities the correction uses.
+\emph{Behavior:} the acceptance model~\eqref{eq:fishbein} is stylized; the
+voltage layer does not depend on it, the value of price signals does.
+\emph{Data:} the residential fleet is synthetic; loads (United States) and
+prices (Netherlands) come from different systems; training and test days share
+the base-load profile; market change is tested only through 2019.

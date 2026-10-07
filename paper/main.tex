@@ -43,8 +43,8 @@ Sunway University, Selangor, Malaysia (e-mail: yawarb@sunway.edu.my).}}
 \begin{abstract}
 Residential electric-vehicle (EV) charging concentrates in the evening, when
 energy is expensive and feeder voltages are lowest. Prices change hourly,
-dispatch runs every few minutes and voltages must be corrected within a minute,
-yet most learned coordinators act at one rate. We propose a
+dispatch every few minutes and voltages within a minute, yet most learned
+coordinators act at one rate. We propose a
 nested controller with one level per timescale. Proximal policy optimization
 sets an hourly price corridor. A shared deep deterministic policy
 gradient agent dispatches every \SI{15}{min} as a learned residual on a
@@ -74,8 +74,13 @@ transportation electrification, voltage regulation.
 \end{IEEEkeywords}
 
 \section{Introduction}
+\IEEEPARstart{E}{lectric} vehicles are becoming one of the largest flexible
+loads on distribution feeders, and when they charge decides both what drivers
+pay and whether voltages stay within limits. This section motivates the
+problem, states its challenges, reviews prior work and lists our contributions.
+
 \subsection{Background and Motivation}
-\IEEEPARstart{T}{ransportation} electrification is accelerating: global
+Transportation electrification is accelerating: global
 electric-car sales exceeded 17 million in 2024 and are expected to pass 20
 million in 2025~\cite{iea2025}. Residential charging of electric vehicles (EVs)
 concentrates in the evening, when household demand peaks. On weak radial
@@ -119,13 +124,12 @@ data. Hierarchical designs coordinate several stations~\cite{saner2022} or
 regulate voltage on two timescales for flash-charged buses~\cite{wang2025flash};
 hierarchical RL is surveyed in~\cite{pateria2021}. Safe RL handles constraints such as
 voltage limits as expected costs (CPO~\cite{achiam2017} and Lagrangian methods,
-reviewed in~\cite{su2025review,yu2024safereview}) and has been applied to Volt-VAR
-control~\cite{wang2020voltvar,gao2022modelaug}, active distribution
+reviewed in~\cite{su2025review}) and has been applied to Volt-VAR
+control~\cite{wang2020voltvar}, active distribution
 networks~\cite{kou2020}, stability-constrained~\cite{shi2022stability} and
 multi-agent~\cite{wang2024safemarl} voltage control; multi-agent deep RL also
 coordinates Volt-VAR devices~\cite{gao2021consensus} and active and reactive
-power~\cite{hu2022voltage}, and physics-informed graph representations add
-robustness to bad measurements~\cite{cao2024pignn}. EV chargers have supported
+power~\cite{hu2022voltage}. EV chargers have supported
 voltage with vehicle-to-grid active power~\cite{singh2013,mattos2024}, reactive
 power~\cite{leemput2015,hu2021dmpc} or both~\cite{wang2023coord}; inverter
 reactive capability is standardized in IEEE Std 1547-2018~\cite{ieee1547}.
@@ -145,8 +149,7 @@ kept out of the learning problem.
 \setlength{\tabcolsep}{3pt}
 \begin{tabular}{@{}lccc@{}}
 \toprule
-Class & Time- & Voltage & Charging \\
- & scales & handling & limits \\
+Class & Rates & Voltage & Limits \\
 \midrule
 Network optimization~\cite{clement2010} & one & network model & constraints \\
 Household scheduling~\cite{ortegavazquez2014} & one & not modeled & constraints \\
@@ -162,10 +165,9 @@ Nested (ours) & three & measured, corrected & by construction \\
 \subsection{Contributions}
 \begin{enumerate}
 \item \textbf{A nested controller} (Section~\ref{sec:method}): an hourly
-price-corridor policy trained with proximal policy optimization (PPO), a 15-min
-dispatch policy trained with deep deterministic policy gradient (DDPG) and
-shared by all aggregators, and a non-learned voltage layer acting every
-\SI{60}{s}.
+price-corridor policy trained with proximal policy optimization (PPO), a shared
+15-min dispatch policy trained with deep deterministic policy gradient (DDPG)
+and a non-learned 60-s voltage layer.
 \item \textbf{Plan-residual dispatch, feasible by construction.} Level~2 learns
 a correction to a deadline-aware cheapest-slot plan (residual policy
 learning~\cite{silver2018residual,johannink2019residual}); least-laxity-first
@@ -173,8 +175,8 @@ learning~\cite{silver2018residual,johannink2019residual}); least-laxity-first
 charger and transformer limits.
 \item \textbf{Reactive correction bounded by the inverter rating.} Level~3 uses
 $\Qmax_i=\sqrt{S_i^2-P_i^2}$~\cite{leemput2015}, so curtailment never removes
-reactive headroom; a secant step on the measured sensitivity closes the voltage
-gap, and curtailment is the fallback. It is evaluated with every baseline.
+headroom; a secant step on the measured sensitivity closes the voltage gap,
+with curtailment as fallback, for every baseline as well.
 \item \textbf{A reproducible, paired evaluation} (Sections~\ref{sec:system}
 and~\ref{sec:setup}): AC power flow on two IEEE feeders; ENTSO-E
 prices~\cite{hirth2018}, Pecan Street loads~\cite{pecanstreet} and ACN-Data
@@ -185,13 +187,14 @@ PPO-Lagrangian, constrained policy optimization (CPO) and hierarchical RL
 (HRL); one command regenerates every result.
 \end{enumerate}
 
-\subsection{Organization}
 Sections~\ref{sec:system}--\ref{sec:setup} present the system, controller and
 setup, Sections~\ref{sec:results} and~\ref{sec:discussion} the results and their
 scope, and Section~\ref{sec:conclusion} concludes.
 
 \section{System Model and Study Design}
 \label{sec:system}
+We first fix the setting in which the controller acts: feeders, data, the
+drivers' price response and the metrics by which every method is judged.
 
 \subsection{Feeder and Power Flow}
 We use the IEEE 33-bus~\cite{baran1989} and 69-bus~\cite{baran1989cap} radial
@@ -278,25 +281,25 @@ run from one command.}
 
 \section{Nested Controller}
 \label{sec:method}
-Fig.~\ref{fig:arch} shows the architecture. Each level is a decision process
-at its own rate whose environment includes the drivers' price response and
-the closed-loop behavior of the faster levels.
+The controller splits coordination by timescale, so that each decision is
+taken at the rate at which its inputs change. Fig.~\ref{fig:arch} shows the
+architecture: each level is a decision process at its own rate whose
+environment includes the drivers' price response and the faster levels.
 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]{generated/fig_architecture.pdf}
-\caption{Nested controller. Black arrows: observations; blue: set points
-(top-down); orange: reactive set points computed by Level~3 from measured
-voltages; red, dashed: measurements fed back (bottom-up).}
+\caption{Nested controller and simulated environment. Solid arrows are set
+points and data passed down; dashed arrows are measurements fed back. Labels
+name the quantity passed; numbers in parentheses refer to equations.}
 \label{fig:arch}
 \end{figure*}
 
 \subsection{Level 1: Price Corridor (PPO, Hourly)}
 The state $s^{(1)}_t\in\mathbb{R}^{11}$ holds the mean bus voltage, substation
-active and reactive power, current price, share of vehicles plugged in, their
-mean state of charge, line-loading margin (assumed rating \SI{0.4}{kA}),
-substation loading (assumed \SI{8}{MVA}), the hour (sine, cosine) and the mean
-price over the next 12\,h. The action $a^{(1)}_t\in[0,1]^2$, drawn from Beta
+$P$ and $Q$, current price, plugged-in share, mean state of charge,
+line-loading margin (rating \SI{0.4}{kA}), substation loading (\SI{8}{MVA}),
+the hour (sine, cosine) and the mean price over the next 12\,h. The action $a^{(1)}_t\in[0,1]^2$, drawn from Beta
 distributions, sets the center $c_t$ and width $w_t$ of the corridor
 $[p^{\min}_t,p^{\max}_t]=[c_t-w_t/2,\,c_t+w_t/2]$, clipped to
 $[p^{\mathrm{lo}},p^{\mathrm{hi}}]=[\text{\euro}0.05,\text{\euro}0.40]/\mathrm{kWh}$:
@@ -359,8 +362,7 @@ therefore lies in
 \begin{equation}
 \mathcal{C}_k=\Big\{c:\ 0\le c_i\le\hat c_i,\ \textstyle\sum_i c_i\le P^{\mathrm{cap}}_k\Big\}.
 \end{equation}
-Methods that output per-vehicle rates are mapped onto $\mathcal{C}_k$ by exact
-Euclidean projection.
+Per-vehicle rates of other methods are projected onto $\mathcal{C}_k$.
 
 \emph{Reward.} The reward of aggregator $k$ in interval $\tau$ is
 \begin{align}
@@ -371,9 +373,8 @@ r^{(2)}_{\tau,k}={}&-C_{\tau,k}+\omega\,(p_{\tau,k}-\lambda^{\mathrm{ref}})E^{\m
 with the interval's energy cost $C_{\tau,k}$ (summing to the daily cost), unmet
 energy $U_{\tau,k}$ of departing vehicles, energy $G_{\tau,k}$ that can no
 longer be delivered before departure and curtailed energy $X_{\tau,k}$ (kWh;
-money in \euro). With 96 decisions per day we use $\gamma=0.999$; with
-$\gamma=0.99$ a cost 12\,h later would be discounted by almost 40\%
-($0.99^{48}\approx0.62$).
+money in \euro). With 96 decisions per day we use $\gamma=0.999$; $\gamma=0.99$
+would discount a cost 12\,h ahead by almost 40\%.
 
 \emph{Revenue-neutral pricing.} A profit-seeking aggregator would raise prices,
 lowering acceptance and pushing charging into expensive hours. We instead
@@ -450,6 +451,8 @@ core); Table~\ref{tab:hyper} lists the hyperparameters.
 
 \section{Experimental Setup}
 \label{sec:setup}
+A fair test needs strong alternatives, stressed conditions and many
+independent days; this section defines all three.
 
 \subsection{Scenarios}
 Table~\ref{tab:scendef} defines the scenarios. S1, S2, S3 and S5 vary the

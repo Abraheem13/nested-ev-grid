@@ -532,7 +532,7 @@ def figures(s, d, art, out):
     from .diagrams import FONT
     plt.rcParams.update({**FONT, "font.size": 8, "axes.linewidth": 0.6, "axes.edgecolor": "#52514e",
                          "xtick.color": "#52514e", "ytick.color": "#52514e"})
-    fig, axes = plt.subplots(1, 2, figsize=(7.16, 2.12))
+    fig, axes = plt.subplots(1, 2, figsize=(7.16, 2.0))
     x = np.array([p for _, p in PEN])
 
     def line(ax, m, metric, lw=1.1):
@@ -657,7 +657,7 @@ def fig_profile(prof, out):
     from .diagrams import FONT
     plt.rcParams.update({**FONT, "font.size": 8, "axes.linewidth": 0.6, "axes.edgecolor": "#52514e",
                          "xtick.color": "#52514e", "ytick.color": "#52514e"})
-    fig, ax = plt.subplots(1, 3, figsize=(7.16, 1.95), gridspec_kw={"width_ratios": [1.25, 1.15, 0.8]})
+    fig, ax = plt.subplots(1, 3, figsize=(7.16, 1.85), gridspec_kw={"width_ratios": [1.25, 1.15, 0.8]})
     ticks = [12, 18, 24, 30, 36]
     for m in ("uncoordinated", "price_aware+L3", "nested"):
         if m in prof:

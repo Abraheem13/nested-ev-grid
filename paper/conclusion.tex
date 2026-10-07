@@ -1,7 +1,7 @@
-We presented a nested EV charging controller with hourly pricing,
-15-min plan-residual dispatch and 60-s reactive voltage correction. On two IEEE feeders
-with AC power flow and real price, load and session data, it kept the voltage
-floor without base-load deviation, up to \GPenSFive\% penetration on the
+We presented a nested EV charging controller with hourly pricing, 15-min
+plan-residual dispatch and 60-s reactive voltage correction. On two IEEE
+feeders with real price, load and session data, it kept the voltage floor
+without base-load deviation, up to \GPenSFive\% penetration on the
 33-bus feeder and at \GPenSThree\% in the other settings,% claim: nested_zero_viol_nominal
 % claim: general_nested_zero_viol
 \ and was the cheapest learned controller.% claim: nested_cheapest_learned_main
@@ -19,6 +19,6 @@ up to \GPenSFive\% penetration without base-load deviation, at an
 energy-cost change of at most \GLThreeCostChangeMax\%;% claim: l3_negligible_cost_main
 % claim: l3_zero_viol_rules_nominal
 % claim: l3_zero_viol_learned_nominal
-\ such a layer belongs in every comparison. Second, learned dispatch pays off
-when it starts from a sound plan and grid stress, not price, binds. Future work
-includes unbalanced feeders, uncertain departures and field validation.
+\ it belongs in every comparison. Second, learned dispatch pays off when it
+starts from a sound plan and grid stress binds. Future work includes unbalanced
+feeders, uncertain departures and field validation.
