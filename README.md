@@ -41,8 +41,9 @@ python reproduce.py --jobs 8          # everything from the raw data (about 25 C
 6. evaluate all methods on 50 held-out 2024 days;
 7. record the 60-s operating profile of one representative test day, fixed by
    rule (`scripts/day_profile.py`; each run must reproduce its stored evaluation);
-8. write every table, figure and number of the paper to `paper/generated/`,
-   compile `paper/main.pdf` and check it (`scripts/check_paper.py`).
+8. write every table, figure and number of the paper to `paper/generated/`
+   (a figure in which any text overlaps another text, a line or a box is
+   refused), compile `paper/main.pdf` and check it (`scripts/check_paper.py`).
 
 Every stage is resumable: finished jobs are skipped and interrupted training
 runs continue from their last checkpoint (`--force` re-runs everything).

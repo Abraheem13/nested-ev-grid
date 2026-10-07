@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .diagrams import save_checked
 from .methods import label, short_label
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
@@ -303,45 +304,19 @@ def table_stress(s, path):
     path.write_text("\n".join(lines) + "\n")
 
 
-def table_sensitivity(s, path):
-    rows = [("sens_delta0.0005", r"$\delta = 0.0005$\,p.u."), ("main", r"Default"),
-            ("sens_delta0.002", r"$\delta = 0.002$\,p.u."), ("sens_S10", r"$S_i = 10$\,kVA"), ("sens_S14", r"$S_i = 14$\,kVA")]
-    lines = [r"\begin{tabular}{@{}lrrrrr@{}}", r"\toprule",
-             r"Setting & Cost (\euro) & SQ & Viol.\ (\%) & Q act.\ (\%) & Curt.\ (kWh) \\", r"\midrule"]
-    for v, lab in rows:
-        r = row(s, v, "nested", "S3")
-        if r is None:
-            continue
-        lines.append(f"{lab} & {fmt(r['cost_eur'], 1)} & {fmt(r['service_quality'], 3)} & "
-                     f"{fmt(r['violation_rate_pct'], 2)} & {fmt(r['q_activation_pct'], 2)} & {fmt(r['curtailed_kwh'], 1)} \\\\")
-    lines += [r"\bottomrule", r"\end{tabular}"]
-    path.write_text("\n".join(lines) + "\n")
-
-
-def table_compute(art, path):
+def compute_times(art):
+    """Training episodes and wall-clock time of every stored run (from train_log.csv)."""
     rows = []
     for d in sorted((art / "runs").glob("*")):
         log = d / "train_log.csv"
         if not log.exists():
             continue
-        method, fleet, net, abl, seed = d.name.rsplit("_", 4)[0], *d.name.rsplit("_", 4)[1:]
+        _, fleet, net, abl, _ = d.name.rsplit("_", 4)
         lg = pd.read_csv(log)
         rows.append({"run": d.name, "method": d.name.split("_residential")[0].split("_acn")[0],
                      "fleet": fleet, "network": net, "ablation": abl,
                      "episodes": len(lg), "wall_s_ep": lg.wall_s.mean(), "total_h": lg.wall_s.sum() / 3600})
-    df = pd.DataFrame(rows)
-    main = df[(df.fleet == "residential") & (df.network == "ieee33") & (df.ablation == "none")]
-    g = main.groupby("method").agg(runs=("run", "count"), episodes=("episodes", "mean"),
-                                   wall=("wall_s_ep", "mean"), total=("total_h", "mean"))
-    names = {"nested": "Nested (proposed)", "flat": "Flat DDPG", "ppo": "PPO-Lagrangian", "cpo": "CPO", "hrl": "Hierarchical RL"}
-    lines = [r"\begin{tabular}{@{}lrrrr@{}}", r"\toprule",
-             r"Method & Seeds & Episodes & s / episode & h / run \\", r"\midrule"]
-    for m, r in g.iterrows():
-        lines.append(f"{names.get(m.split('_')[0], m)} & {int(r['runs'])} & {int(r['episodes'])} & "
-                     f"{r['wall']:.2f} & {r['total']:.2f} \\\\")
-    lines += [r"\bottomrule", r"\end{tabular}"]
-    path.write_text("\n".join(lines) + "\n")
-    return df
+    return pd.DataFrame(rows)
 
 
 def table_setup(cfg, calib, path):
@@ -525,7 +500,7 @@ STYLE = {  # method -> (colour, line style, marker); colour follows the entity i
 PEN = [("S1", 40), ("S2", 67), ("S3", 80), ("S5", 100)]       # S4 is S3 with forecast error
 
 
-def figures(s, d, art, out):
+def figures(s, d, out):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -600,34 +575,8 @@ def figures(s, d, art, out):
     fig.legend(handles, labels, loc="lower center", ncol=4, frameon=False, fontsize=7, bbox_to_anchor=(0.5, 0.0),
                handlelength=2.4, columnspacing=1.6)
     fig.tight_layout(rect=(0, 0.14, 1, 1), w_pad=2.0)
-    fig.savefig(out / "fig_scenarios.pdf", bbox_inches="tight")
+    save_checked(fig, out / "fig_scenarios.pdf", bbox_inches="tight")
     plt.close(fig)
-
-    runs = sorted((art / "runs").glob("*_residential_ieee33_none_s*"))
-    if runs:
-        fig, ax = plt.subplots(1, 2, figsize=(7.16, 2.0))
-        for name in ["flat_ddpg", "ppo_lag", "cpo", "hrl", "nested"]:
-            c = STYLE[name][0]
-            logs = [pd.read_csv(r / "train_log.csv") for r in runs if r.name.startswith(name + "_residential")]
-            if not logs:
-                continue
-            n = min(len(lg) for lg in logs)
-            cpk = np.mean([lg.cost_per_kwh.values[:n] for lg in logs], axis=0)
-            sq = np.mean([lg.service_quality.values[:n] for lg in logs], axis=0)
-            k = 25
-            lw, ls = (1.6, "-") if name == "nested" else (0.9, STYLE[name][1])
-            ax[0].plot(pd.Series(cpk).rolling(k, min_periods=1).mean(), color=c, lw=lw, ls=ls, label=label(name))
-            ax[1].plot(pd.Series(sq).rolling(k, min_periods=1).mean(), color=c, lw=lw, ls=ls)
-        ax[0].set(xlabel="Training episode", ylabel="Cost per delivered kWh (EUR)")
-        ax[1].set(xlabel="Training episode", ylabel="Service quality")
-        for a in ax:
-            a.grid(axis="y", lw=0.3, color="#d9d8d4")
-            a.spines[["top", "right"]].set_visible(False)
-        fig.legend(*ax[0].get_legend_handles_labels(), loc="lower center", ncol=5, frameon=False, fontsize=6.5,
-                   bbox_to_anchor=(0.5, -0.02), handlelength=2.6)
-        fig.tight_layout(rect=(0, 0.12, 1, 1))
-        fig.savefig(out / "fig_training.pdf", bbox_inches="tight")
-        plt.close(fig)
 
 
 PROFILE = {  # method -> (label, colour, line style)
@@ -677,7 +626,7 @@ def fig_profile(prof, out):
             lab, col, ls = PROFILE[m]
             ax[1].plot(prof[m].h, prof[m].vmin_pu, color=col, ls=ls, lw=1.6 if m == "nested" else 1.0, label=lab)
     ax[1].axhline(0.95, color="#c00000", lw=0.7, ls=":")
-    ax[1].text(12.3, 0.9505, "0.95 p.u.", color="#c00000", fontsize=7, va="bottom")
+    ax[1].text(35.8, 0.9495, "0.95 p.u.", color="#c00000", fontsize=7, ha="right", va="top")
     ax[1].set_ylabel("Lowest bus voltage (p.u.)")
     ax[1].set_title("(b) Lowest bus voltage", fontsize=8, loc="left")
     if "uncoordinated+L3" in prof:
@@ -687,9 +636,9 @@ def fig_profile(prof, out):
     ax[2].set_ylabel("Reactive power (kvar)")
     ax[2].set_title("(c) Level-3 reactive power", fontsize=8, loc="left")
     for a in ax:
-        tk = ticks if a is not ax[2] else [16, 18, 20, 22, 24]
+        tk, lim = (ticks, (ticks[0], ticks[-1])) if a is not ax[2] else ([18, 20, 22], (17, 23))
         a.set_xticks(tk, [f"{t % 24:02d}:00" for t in tk], fontsize=7)
-        a.set_xlim(tk[0], tk[-1])
+        a.set_xlim(*lim)
         a.grid(axis="y", lw=0.3, color="#d9d8d4")
         a.spines[["top", "right"]].set_visible(False) if a is not ax[0] else a.spines[["top"]].set_visible(False)
     handles, labels = [], []
@@ -701,7 +650,7 @@ def fig_profile(prof, out):
     fig.legend(handles, labels, loc="lower center", ncol=5, frameon=False, fontsize=7, bbox_to_anchor=(0.5, 0.0),
                handlelength=2.4, columnspacing=1.4)
     fig.tight_layout(rect=(0, 0.1, 1, 1), w_pad=1.2)
-    fig.savefig(out / "fig_profile.pdf", bbox_inches="tight")
+    save_checked(fig, out / "fig_profile.pdf", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -1191,15 +1140,14 @@ def build_all(art: pathlib.Path, out: pathlib.Path) -> None:
     table_ablation(s, ["S3", "S5"], out / "tab_ablation.tex")
     table_general(s, out / "tab_general.tex")
     table_stress(s, out / "tab_stress.tex")
-    table_sensitivity(s, out / "tab_sensitivity.tex")
     table_decomp(s, out / "tab_decomp.tex")
-    compute_df = table_compute(art, out / "tab_compute.tex")
+    compute_df = compute_times(art)
     calib = json.loads((art / "calibration.json").read_text()) if (art / "calibration.json").exists() else {}
     table_setup(cfg, calib, out / "tab_setup.tex")
     table_scen_def(cfg, out / "tab_scen_def.tex")
     table_grid(s, out / "tab_grid.tex")
     table_learned(s, spread, compute_df, out / "tab_learned.tex")
-    figures(s, d, art, out)
+    figures(s, d, out)
     fig_profile(load_profiles(art), out)
     from .diagrams import build_diagrams
     table_hyper(cfg, out / "tab_hyper.tex")
