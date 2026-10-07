@@ -43,10 +43,15 @@ def _tree_layout(net):
     return pos, children
 
 
+FONT = {"font.family": "serif", "font.serif": ["STIXGeneral"], "mathtext.fontset": "stix", "pdf.fonttype": 42}
+
+
 def fig_feeder(cfg: dict, network: str, out: pathlib.Path) -> None:
+    """Drawn at its printed size (one column), so 7 pt here is 7 pt on paper."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    plt.rcParams.update(FONT)
     net = load_network(network)
     children = {i: [] for i in range(net.n_bus)}
     for i in range(1, net.n_bus):
@@ -71,30 +76,32 @@ def fig_feeder(cfg: dict, network: str, out: pathlib.Path) -> None:
 
     place(0, 0, 0)
     agg = np.asarray(cfg["aggregators"]["buses"][network]) - 1
-    fig, ax = plt.subplots(figsize=(3.5, 1.9))
+    fig, ax = plt.subplots(figsize=(3.45, 1.3))
     for i in range(1, net.n_bus):
         (x0, y0), (x1, y1) = pos[net.parent[i]], pos[i]
         ax.plot([x0, x0, x1], [y0, y1, y1], color="0.35", lw=0.7, zorder=1)
     xs = np.array([pos[i][0] for i in range(net.n_bus)])
     ys = np.array([pos[i][1] for i in range(net.n_bus)])
-    ax.scatter(xs, ys, s=7, color="k", zorder=2)
-    ax.scatter(xs[agg], ys[agg], s=60, facecolor="none", edgecolor="#c00000", lw=1.0, zorder=3)
+    ax.scatter(xs, ys, s=6, color="k", zorder=2)
+    ax.scatter(xs[agg], ys[agg], s=45, facecolor="none", edgecolor="#c00000", lw=1.0, zorder=3)
     for k, b in enumerate(agg):
-        ax.annotate(f"A{k + 1} (bus {b + 1})", (xs[b], ys[b]), xytext=(0, 6), textcoords="offset points",
-                    fontsize=5.5, ha="center", color="#c00000")
-    ax.scatter([xs[0]], [ys[0]], marker="s", s=40, color="#0072b2", zorder=3)
-    ax.annotate("substation", (xs[0], ys[0]), xytext=(0, -9), textcoords="offset points", fontsize=5.5,
+        ax.annotate(f"A{k + 1} (bus {b + 1})", (xs[b], ys[b]), xytext=(0, 5), textcoords="offset points",
+                    fontsize=7, ha="center", color="#c00000")
+    ax.scatter([xs[0]], [ys[0]], marker="s", s=30, color="#0072b2", zorder=3)
+    ax.annotate("substation", (xs[0], ys[0]), xytext=(0, 5), textcoords="offset points", fontsize=7,
                 ha="center", color="#0072b2")
+    ax.set_xlim(xs.min() - 1.9, xs.max() + 2.0)
+    ax.set_ylim(ys.min() - 0.6, ys.max() + 1.0)
     ax.set_axis_off()
-    fig.tight_layout(pad=0.1)
+    fig.subplots_adjust(0, 0, 1, 1)
     fig.savefig(out / f"fig_feeder_{network}.pdf")
     plt.close(fig)
 
 
-def _box(ax, xy, w, h, text, fc, fs=6.5):
+def _box(ax, xy, w, h, text, fc, fs=7):
     from matplotlib.patches import FancyBboxPatch
     ax.add_patch(FancyBboxPatch(xy, w, h, boxstyle="round,pad=0.02,rounding_size=0.05", fc=fc, ec="k", lw=0.6))
-    ax.text(xy[0] + w / 2, xy[1] + h / 2, text, ha="center", va="center", fontsize=fs)
+    ax.text(xy[0] + w / 2, xy[1] + h / 2, text, ha="center", va="center", fontsize=fs, linespacing=1.15)
 
 
 def _arrow(ax, a, b, color="k", style="-|>", ls="-"):
@@ -102,83 +109,100 @@ def _arrow(ax, a, b, color="k", style="-|>", ls="-"):
 
 
 def fig_architecture(out: pathlib.Path) -> None:
+    """Drawn at its printed size (text width); axis units are inches."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    plt.rcParams.update({"font.family": "serif", "pdf.fonttype": 42})
-    fig, ax = plt.subplots(figsize=(7.16, 2.75))
-    ax.set_xlim(0, 10.4)
-    ax.set_ylim(0, 4.45)
+    plt.rcParams.update(FONT)
+    W, H = 7.16, 1.96
+    fig = plt.figure(figsize=(W, H))
+    ax = fig.add_axes((0, 0, 1, 1))
+    ax.set_xlim(0, W)
+    ax.set_ylim(0, H)
     ax.set_axis_off()
-    fs = 5.5
-    fl = 5.9
-    rows = {"l1": 3.25, "l2": 1.85, "l3": 0.45}
-    h = {"l1": 0.8, "l2": 1.0, "l3": 0.8}
-    _box(ax, (0.05, rows["l1"]), 2.4, h["l1"], "System state (11-d)\nmean voltage, substation $P$, $Q$,\nprice now and 12 h ahead, fleet,\nline and substation loading", "#eef3fb", fs)
-    _box(ax, (0.05, rows["l2"]), 2.4, h["l2"], "Aggregator state (28-d)\nbus voltage, time, 12 h of prices,\ncorridor, need by laxity,\nacceptance, plan set point $u^0_k$", "#eef3fb", fs)
-    _box(ax, (0.05, rows["l3"]), 2.4, h["l3"], "Measurements\nbus voltages, charger power,\nvehicle needs", "#eef3fb", fs)
-    _box(ax, (2.8, rows["l1"]), 3.0, h["l1"], "Level 1: DSO pricing (PPO, 1 h)\nretail corridor $[p^{\\min}_t, p^{\\max}_t]$", "#d6e6f8", fl)
-    _box(ax, (2.8, rows["l2"]), 3.0, h["l2"], "Level 2: aggregators (DDPG, 15 min)\nshared actor-critic,\nresidual on the plan $u^0_k$:\nset point $u_k$, execution price $p_k$", "#dceedd", fl)
-    _box(ax, (2.8, rows["l3"]), 3.0, h["l3"], "Level 3 (non-parametric)\n3a: price acceptance (15 min)\n3b: reactive correction (60 s)", "#fde6cf", fl)
-    _box(ax, (6.2, rows["l2"]), 2.05, h["l2"], "Feasibility layer\nleast-laxity-first allocation\n+ deadline guard\n$\\sum_i c_i \\leq P^{\\mathrm{cap}}_k$, $c_i \\leq \\hat c_i$", "#f3f3f3", fs)
-    _box(ax, (6.2, rows["l3"]), 2.05, h["l3"], "$Q_i^{\\max}=\\sqrt{S_i^2-P_i^2}$\nmeasured-sensitivity step\ncurtailment fallback", "#fbe0e0", fs)
-    _box(ax, (8.65, 1.05), 1.7, 2.3, "Radial feeder\nIEEE 33/69-bus\nAC power flow\nevery 60 s", "#ececec", fl)
+    fs = 7
+    rows = {"l1": 1.42, "l2": 0.66, "l3": 0.04}
+    h = {"l1": 0.38, "l2": 0.62, "l3": 0.44}
+    x_obs, w_obs = 0.02, 1.62
+    x_lev, w_lev = 1.86, 1.92
+    x_mid, w_mid = 4.00, 1.62
+    x_fdr, w_fdr = 5.84, 1.28
+    _box(ax, (x_obs, rows["l1"]), w_obs, h["l1"], "System state (11-d): voltages,\nsubstation power, prices, fleet", "#eef3fb", fs)
+    _box(ax, (x_obs, rows["l2"]), w_obs, h["l2"], "Aggregator state (28-d):\nbus voltage, 12 h of prices,\ncorridor, need by laxity,\nplan set point $u^0_k$", "#eef3fb", fs)
+    _box(ax, (x_obs, rows["l3"]), w_obs, h["l3"], "Measured bus voltages,\ncharger powers", "#eef3fb", fs)
+    _box(ax, (x_lev, rows["l1"]), w_lev, h["l1"], "Level 1: pricing (PPO, 1 h)\ncorridor $[p^{\\min}_t, p^{\\max}_t]$", "#d6e6f8", fs)
+    _box(ax, (x_lev, rows["l2"]), w_lev, h["l2"], "Level 2: dispatch (DDPG, 15 min)\nshared actor-critic; residual\non plan $u^0_k$: set point $u_k$,\nexecution price $p_k$", "#dceedd", fs)
+    _box(ax, (x_lev, rows["l3"]), w_lev, h["l3"], "Level 3: voltage correction\n(non-learned, 60 s)", "#fde6cf", fs)
+    _box(ax, (x_mid, rows["l2"]), w_mid, h["l2"], "Drivers accept or decline $p_k$;\nleast-laxity-first allocation\nwith deadline guard, within\ncharger and transformer limits", "#f3f3f3", fs)
+    _box(ax, (x_mid, rows["l3"]), w_mid, h["l3"], "$Q_i^{\\max}=\\sqrt{S_i^2-P_i^2}$\nsecant step,\ncurtailment fallback", "#fbe0e0", fs)
+    _box(ax, (x_fdr, rows["l3"]), w_fdr, rows["l2"] + h["l2"] - rows["l3"], "Radial feeder\nIEEE 33/69-bus\nAC power flow\nevery 60 s", "#ececec", fs)
     for key in rows:
         y = rows[key] + h[key] / 2
-        _arrow(ax, (2.45, y), (2.8, y))
-    _arrow(ax, (4.3, rows["l1"]), (4.3, rows["l2"] + h["l2"]), "#0072b2")
-    _arrow(ax, (4.3, rows["l2"]), (4.3, rows["l3"] + h["l3"]), "#0072b2")
-    _arrow(ax, (5.8, rows["l2"] + 0.5), (6.2, rows["l2"] + 0.5), "#0072b2")
-    _arrow(ax, (8.25, rows["l2"] + 0.5), (8.65, rows["l2"] + 0.5), "#0072b2")
-    _arrow(ax, (5.8, rows["l3"] + 0.4), (6.2, rows["l3"] + 0.4), "#e69f00")
-    _arrow(ax, (8.25, rows["l3"] + 0.4), (8.65, 1.3), "#e69f00")
-    _arrow(ax, (9.5, 3.35), (9.5, 3.85), "#c00000", style="-")
-    _arrow(ax, (9.5, 3.85), (5.8, 3.85), "#c00000", ls="--")
-    ax.text(7.65, 3.95, "voltages, cost, curtailment, acceptance", fontsize=fs, color="#c00000", ha="center")
-    ax.text(0.05, 0.08, "blue: set points (top-down)     orange: reactive set points     red dashed: measurements (bottom-up)",
-            fontsize=fs)
-    fig.savefig(out / "fig_architecture.pdf", bbox_inches="tight")
+        _arrow(ax, (x_obs + w_obs, y), (x_lev, y))
+    xc = x_lev + w_lev / 2
+    _arrow(ax, (xc, rows["l1"]), (xc, rows["l2"] + h["l2"]), "#0072b2")
+    _arrow(ax, (xc, rows["l2"]), (xc, rows["l3"] + h["l3"]), "#0072b2")
+    y2 = rows["l2"] + h["l2"] / 2
+    _arrow(ax, (x_lev + w_lev, y2), (x_mid, y2), "#0072b2")
+    _arrow(ax, (x_mid + w_mid, y2), (x_fdr, y2), "#0072b2")
+    y3 = rows["l3"] + h["l3"] / 2
+    _arrow(ax, (x_lev + w_lev, y3), (x_mid, y3), "#e69f00")
+    _arrow(ax, (x_mid + w_mid, y3), (x_fdr, y3), "#e69f00")
+    yt = rows["l1"] + h["l1"] / 2
+    xf = x_fdr + w_fdr / 2
+    _arrow(ax, (xf, rows["l2"] + h["l2"]), (xf, yt), "#c00000", style="-", ls="--")
+    _arrow(ax, (xf, yt), (x_lev + w_lev, yt), "#c00000", ls="--")
+    ax.text((x_lev + w_lev + xf) / 2, yt + 0.05, "voltages, cost, curtailment, acceptance", fontsize=fs,
+            color="#c00000", ha="center", va="bottom")
+    ax.text(x_obs, H - 0.02, "black: observations    blue: set points    orange: reactive set points    "
+            "red dashed: measurements fed back", fontsize=fs, va="top")
+    fig.savefig(out / "fig_architecture.pdf")
     plt.close(fig)
 
 
 def fig_l3_loop(out: pathlib.Path) -> None:
-    """Control flow of nflev.env.qcontrol.ReactiveController.correct."""
+    """Control flow of nflev.env.qcontrol.ReactiveController.correct, drawn at its
+    printed size (one column); axis units are inches."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    plt.rcParams.update({"font.family": "serif", "pdf.fonttype": 42})
-    fig, ax = plt.subplots(figsize=(3.4, 3.0))
-    ax.set_xlim(0, 6.2)
-    ax.set_ylim(0, 5.6)
+    plt.rcParams.update(FONT)
+    W, H = 3.45, 1.72
+    fig = plt.figure(figsize=(W, H))
+    ax = fig.add_axes((0, 0, 1, 1))
+    ax.set_xlim(0, W)
+    ax.set_ylim(0, H)
     ax.set_axis_off()
-    fs = 6
-    x0, w, hh = 1.15, 2.9, 0.62
-    ys = {"pf": 5.0, "chk": 3.95, "hr": 2.9, "inj": 1.85, "re": 0.75}
+    fs = 7
+    x0, w, hh = 0.62, 1.62, 0.22
+    ys = {"pf": 1.58, "chk": 1.24, "hr": 0.90, "inj": 0.54, "re": 0.15}
     _box(ax, (x0, ys["pf"] - hh / 2), w, hh, "Solve AC power flow", "#ececec", fs)
-    _box(ax, (x0, ys["chk"] - hh / 2), w, hh, "$\\min_n V_n < V_{\\min}+\\delta$ ?", "#fff4cc", fs)
+    _box(ax, (x0, ys["chk"] - hh / 2), w, hh, "$\\min_n V_n < \\underline{V}+\\delta$ ?", "#fff4cc", fs)
     _box(ax, (x0, ys["hr"] - hh / 2), w, hh, "Reactive headroom left?", "#fff4cc", fs)
-    _box(ax, (x0, ys["inj"] - hh / 2), w, hh + 0.1, "Inject $Q$: proportional first,\nthen measured sensitivity", "#fde6cf", fs)
+    _box(ax, (x0, ys["inj"] - 0.15), w, 0.30, "Inject $Q$: proportional step,\nthen secant step", "#fde6cf", fs)
     _box(ax, (x0, ys["re"] - hh / 2), w, hh, "Re-solve power flow", "#ececec", fs)
-    _box(ax, (4.4, ys["inj"] - 0.45), 1.75, 0.9, "Curtail EV power,\nmost at the most\ndepressed bus\n(frees headroom)", "#fbe0e0", 5.5)
+    xs, ws = 2.52, 0.91
+    _box(ax, (xs, ys["inj"] - 0.22), ws, 0.44, "Curtail EV power,\nmost at the most\ndepressed bus", "#fbe0e0", fs)
     cx = x0 + w / 2
     _arrow(ax, (cx, ys["pf"] - hh / 2), (cx, ys["chk"] + hh / 2))
     _arrow(ax, (cx, ys["chk"] - hh / 2), (cx, ys["hr"] + hh / 2))
-    _arrow(ax, (cx, ys["hr"] - hh / 2), (cx, ys["inj"] + hh / 2 + 0.1))
-    _arrow(ax, (cx, ys["inj"] - hh / 2), (cx, ys["re"] + hh / 2))
-    ax.text(cx + 0.08, (ys["chk"] + ys["hr"]) / 2, "yes", fontsize=fs, va="center")
-    ax.text(cx + 0.08, (ys["hr"] + ys["inj"]) / 2 + 0.05, "yes", fontsize=fs, va="center")
-    _arrow(ax, (x0 + w, ys["chk"]), (x0 + w + 0.7, ys["chk"]))
-    ax.text(x0 + w + 0.75, ys["chk"], "no: done", fontsize=fs, va="center")
-    ax.annotate("", xy=(5.27, ys["inj"] + 0.45), xytext=(x0 + w, ys["hr"]),
+    _arrow(ax, (cx, ys["hr"] - hh / 2), (cx, ys["inj"] + 0.15))
+    _arrow(ax, (cx, ys["inj"] - 0.15), (cx, ys["re"] + hh / 2))
+    ax.text(cx + 0.04, (ys["chk"] + ys["hr"]) / 2, "yes", fontsize=fs, va="center")
+    ax.text(cx + 0.04, (ys["hr"] + ys["inj"] + 0.04) / 2, "yes", fontsize=fs, va="center")
+    _arrow(ax, (x0 + w, ys["chk"]), (x0 + w + 0.3, ys["chk"]))
+    ax.text(x0 + w + 0.33, ys["chk"], "no: done", fontsize=fs, va="center")
+    ax.annotate("", xy=(xs + ws / 2, ys["inj"] + 0.22), xytext=(x0 + w, ys["hr"]),
                 arrowprops=dict(arrowstyle="-|>", lw=0.8, connectionstyle="angle,angleA=0,angleB=90,rad=0"))
-    ax.text(x0 + w + 0.12, ys["hr"] + 0.1, "no", fontsize=fs)
-    ax.annotate("", xy=(x0 + w, ys["re"]), xytext=(5.27, ys["inj"] - 0.45),
+    ax.text(x0 + w + 0.08, ys["hr"] + 0.03, "no", fontsize=fs, va="bottom")
+    ax.annotate("", xy=(x0 + w, ys["re"]), xytext=(xs + ws / 2, ys["inj"] - 0.22),
                 arrowprops=dict(arrowstyle="-|>", lw=0.8, connectionstyle="angle,angleA=90,angleB=0,rad=0"))
     ax.annotate("", xy=(x0, ys["chk"]), xytext=(x0, ys["re"]),
                 arrowprops=dict(arrowstyle="-|>", lw=0.8,
-                                connectionstyle="arc,angleA=180,angleB=180,armA=10,armB=10,rad=0"))
-    ax.text(0.0, (ys["chk"] + ys["re"]) / 2, "repeat\n(at most\n8 power\nflows,\n+12 when\ncurtailing)", fontsize=5.5, va="center")
-    fig.savefig(out / "fig_l3_loop.pdf", bbox_inches="tight")
+                                connectionstyle="arc,angleA=180,angleB=180,armA=8,armB=8,rad=0"))
+    ax.text(0.01, (ys["chk"] + ys["re"]) / 2, "repeat:\n$\\leq$8 power\nflows (+12\nwhen\ncurtailing)",
+            fontsize=fs, va="center", linespacing=1.1)
+    fig.savefig(out / "fig_l3_loop.pdf")
     plt.close(fig)
 
 

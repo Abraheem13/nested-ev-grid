@@ -1,4 +1,4 @@
-# Charge Fully, Stay Safe: Nested Multi-Timescale Learning for EV Charging Coordination
+# Nested Multi-Timescale Learning and Control for Voltage-Aware EV Charging Coordination
 
 Code, data pipeline, trained policies and paper sources for the article by
 Abraheem Rashid, Faisal Iradat, Waseem Iqbal and Yawar Abbas Bangash
@@ -11,7 +11,9 @@ distribution feeder with three levels, one per timescale:
 |---|---|---|
 | 1 | 1 h | PPO policy that sets the retail price corridor |
 | 2 | 15 min | DDPG policy, shared by the aggregators, that corrects a deadline-aware cheapest-slot plan; least-laxity-first allocation keeps every dispatch within charger and transformer limits |
-| 3 | 15 min / 60 s | Driver price acceptance, and voltage correction with charger reactive power bounded by the inverter rating (curtailment only when that headroom is exhausted) |
+| 3 | 60 s | Non-learned voltage correction with charger reactive power bounded by the inverter rating (curtailment only when that headroom is exhausted) |
+
+Drivers' price acceptance is part of the simulated environment, not a control level.
 
 ## Reproducing the paper
 
@@ -64,7 +66,7 @@ training episodes, three evaluation days).
 | `configs/base.yaml` | Every parameter of the study |
 | `src/nflev/grid/` | IEEE 33- and 69-bus feeders (MATPOWER data) and radial AC power flow, validated against pandapower |
 | `src/nflev/data/` | Day-ahead prices, household loads and charging sessions |
-| `src/nflev/env/` | Quasi-static simulation at 60 s: driver acceptance, reactive correction, feasible allocation, planning prior |
+| `src/nflev/env/` | Quasi-static simulation at 60 s: driver acceptance model, Level-3 reactive correction, feasible allocation, planning prior |
 | `src/nflev/training/` | Nested controller and training loop |
 | `src/nflev/agents/` | PPO, DDPG, PPO-Lagrangian and CPO |
 | `src/nflev/baselines/` | Uncoordinated, TOU timer, price-aware heuristic, MPC LP-OPF, flat DDPG, safe RL, hierarchical RL |

@@ -1,29 +1,25 @@
-We presented a three-level nested controller for EV charging coordination in
-which each level acts at its own timescale: an hourly price corridor, a
-\SI{15}{min} dispatch policy that learns a residual on a deadline-aware
-cheapest-slot plan, and a non-parametric layer that resolves price acceptance
-every \SI{15}{min} and corrects voltage every \SI{60}{s} with inverter reactive
-power. On two IEEE
-feeders with AC power flow and real price, load and session data, the
-controller kept the voltage floor without violations with accurate load
-forecasts, up to \GPenSFive\% penetration on the 33-bus feeder and at
-\GPenSThree\% in the other settings,% claim: nested_zero_viol_nominal
+We presented a nested EV charging controller with hourly pricing,
+15-min plan-residual dispatch and 60-s reactive voltage correction. On two IEEE feeders
+with AC power flow and real price, load and session data, it kept the voltage
+floor without base-load deviation, up to \GPenSFive\% penetration on the
+33-bus feeder and at \GPenSThree\% in the other settings,% claim: nested_zero_viol_nominal
 % claim: general_nested_zero_viol
-\ was the cheapest learned controller,% claim: nested_cheapest_learned_main
-\ and, under a stress test beyond the feeder's reactive capacity, curtailed
-and left undelivered far less energy than a cost-greedy heuristic.% claim: nested_less_curtailment_than_pa_S7
+\ and was the cheapest learned controller.% claim: nested_cheapest_learned_main
+\ A price-aware heuristic remained cheaper at nominal load,% claim: pa_cheaper_than_nested_all_main
+\ and a perfect-foresight LP-OPF cheaper still.% claim: lp_cheapest_S3
+\ Under stress beyond the chargers' reactive capability, the controller
+curtailed and left undelivered far less energy than the heuristic;% claim: nested_less_curtailment_than_pa_S7
 % claim: nested_less_unmet_than_pa_S7
-\ At nominal load that heuristic remains cheaper,% claim: pa_cheaper_than_nested_all_main
-\ and a perfect-foresight LP-OPF cheaper still:% claim: lp_cheapest_S3
-\ the learned levels buy robustness rather than a lower energy bill. Two
-practical lessons follow. First, a physics-based correction layer bounded by
-the inverter rating removed the violations of every coordinator we attached it
-to up to \GPenSFive\% penetration with accurate load forecasts, while changing
-its energy cost by at most
-\GLThreeCostChangeMax\%,% claim: l3_negligible_cost_main
+\ the lower curtailment came from the learned levels, the lower unmet energy
+from least-laxity-first allocation.% claim: decomp_nested_less_curt_than_plan_S7
+% claim: plan_less_unmet_than_pa_S7
+\ Two lessons follow. First, a physics-based correction layer bounded by the
+inverter rating removed the violations of every coordinator we attached it to,
+up to \GPenSFive\% penetration without base-load deviation, at an
+energy-cost change of at most \GLThreeCostChangeMax\%;% claim: l3_negligible_cost_main
 % claim: l3_zero_viol_rules_nominal
 % claim: l3_zero_viol_learned_nominal
-\ and should be part of every comparison. Second, learned dispatch is worth its
-complexity mainly when it starts from a sound plan and when grid stress, not
+\ such a layer belongs in every comparison. Second, learned dispatch is worth
+its complexity mainly when it starts from a sound plan and grid stress, not
 price, is the binding concern. Future work includes unbalanced three-phase
-feeders, uncertainty in departure times, and field validation.
+feeders, uncertain departure times and field validation.

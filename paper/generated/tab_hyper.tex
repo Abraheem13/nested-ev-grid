@@ -1,15 +1,13 @@
 \begin{tabular}{@{}l>{\raggedright\arraybackslash}p{0.68\columnwidth}@{}}
 \toprule
-Level 1 (PPO) & actor/critic 256--128--64, Beta policy \\
- & lr 0.0003, $\gamma$ 0.99, GAE $\lambda$ 0.95, clip 0.2 \\
- & 10 epochs per update, entropy 0.001 \\
+Level 1 (PPO) & actor/critic 256--128--64, Beta policy, lr 0.0003, $\gamma$ 0.99, $\lambda_{\mathrm{GAE}}$ 0.95, clip 0.2, 10 epochs per update, entropy 0.001 \\
 Level 2 (DDPG) & actor/critic 256--128--64, shared, one-hot id \\
  & lr actor/critic 0.0001/0.001, $\gamma$ 0.999, $\tau$ 0.005 \\
  & batch 128, buffer 200\,000, warm-up 1\,000 transitions \\
- & noise 0.3$\to$0.05 (decay 0.995/episode) \\
- & residual scale $\rho$ 0.1 \\
- & PI multiplier: $K_p$ 2.0, $K_i$ 0.05, EMA 0.2, $\omega\in[-2.0, 2.0]$ \\
+ & Gaussian action noise, std 0.3$\to$0.05 (factor 0.995 per episode); residual scale $\rho$ 0.1 \\
+Multiplier & $K_p$ 2.0, $K_i$ 0.05, EMA weight $\alpha$ 0.2, $\omega\in[-2.0, 2.0]$, $|K_i\textstyle\sum e|\le2.0$ \\
 Training & 600 episodes; curriculum window 20 \\
+Baselines & same networks, learning rates, episodes and curriculum; safe RL: $\gamma$ 0.999, cost limit 0, dual step 0.05 (PPO-Lag.), KL radius 0.01 (CPO) \\
 Level 3 & $\delta$ 0.001 p.u., $S_i$ 12.0 kVA, $\le$8 (+12 when curtailing) power flows \\
 \bottomrule
 \end{tabular}

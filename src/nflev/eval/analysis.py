@@ -174,7 +174,7 @@ def row(s, variant, method, scenario, fleet="residential", network="ieee33", spl
 
 def table_main(s, scenario, path):
     lines = [r"\begin{tabular}{@{}lrrrrrrr@{}}", r"\toprule",
-             r"Method & Cost (\euro) & \euro/kWh & Retail & SQ & Viol.\ (\%) & $V_{\min}$ & Curt.\ (kWh) \\",
+             r"Method & Cost (\euro) & Cost/kWh & Retail & SQ & Viol.\ (\%) & Mean $V^{\min}$ & Curt.\ (kWh) \\",
              r"\midrule"]
     for i, m in enumerate(ORDER):
         r = row(s, "main", m, scenario)
@@ -186,17 +186,14 @@ def table_main(s, scenario, path):
         cells = [fmt_ci(r, "cost_eur", 1), fmt(r["cost_per_kwh"], 4), fmt(r["retail_price_paid"], 3),
                  fmt(r["service_quality"], 3),
                  fmt(r["violation_rate_pct"], 2), fmt(r["min_voltage_pu"], 4), fmt(r["curtailed_kwh"], 1)]
-        if m == "nested":
-            name = r"\textbf{" + name + "}"
-            cells = [r"\textbf{" + c + "}" for c in cells]
         lines.append(name + " & " + " & ".join(cells) + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     path.write_text("\n".join(lines) + "\n")
 
 
-def table_scenarios(s, methods, scenarios, path):
+def table_scenarios(s, methods, scenarios, pen, path):
     cols = "".join("rr" for _ in scenarios)
-    head = " & ".join(rf"\multicolumn{{2}}{{c}}{{{sc}}}" for sc in scenarios)
+    head = " & ".join(rf"\multicolumn{{2}}{{c}}{{{sc} ({pen[sc]}\%)}}" for sc in scenarios)
     sub = " & ".join(r"Cost & Viol." for _ in scenarios)
     lines = [rf"\begin{{tabular}}{{@{{}}l{cols}@{{}}}}", r"\toprule", f"Method & {head} \\\\",
              f" & {sub} \\\\", r"\midrule"]
@@ -210,15 +207,22 @@ def table_scenarios(s, methods, scenarios, path):
     path.write_text("\n".join(lines) + "\n")
 
 
+def signed(x, nd):
+    v = f"{abs(x):.{nd}f}"
+    return ("$-$" if x < 0 and float(v) != 0 else "$+$") + v
+
+
 def table_stats(t_cost, t_sq, path):
+    """Rows: every baseline with Level 3 attached (the nested controller includes it).
+    The Holm correction runs over all comparisons, with and without Level 3."""
     lines = [r"\begin{tabular}{@{}lrrrrr@{}}", r"\toprule",
              r"Nested vs. & $\Delta$Cost (\euro) & $p_{\mathrm{Holm}}$ & Days & $\Delta$SQ & $p_{\mathrm{Holm}}$ \\",
              r"\midrule"]
     sq = t_sq.set_index("method")
-    for _, r in t_cost.iterrows():
+    for _, r in t_cost[t_cost.method.str.endswith("+L3")].iterrows():
         q = sq.loc[r["method"]]
-        lines.append(f"{short_label(r['method'])} & {r['mean_diff']:+.1f} {{\\scriptsize[{r['lo']:+.1f}, {r['hi']:+.1f}]}}"
-                     f" & {fmt_p(r['p_holm'])} & {int(r['wins'])}/{int(r['n'])} & {q['mean_diff']:+.4f}"
+        lines.append(f"{short_label(r['method'])} & {signed(r['mean_diff'], 1)} {{\\scriptsize[{signed(r['lo'], 1)}, "
+                     f"{signed(r['hi'], 1)}]}} & {fmt_p(r['p_holm'])} & {int(r['wins'])} & {signed(q['mean_diff'], 4)}"
                      f" & {fmt_p(q['p_holm'])} \\\\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     path.write_text("\n".join(lines) + "\n")
@@ -226,8 +230,8 @@ def table_stats(t_cost, t_sq, path):
 
 ABL_LABELS = {"abl_base": "Complete framework", "abl_no_prior": "No planning prior",
               "abl_no_l1": "No Level 1", "abl_flat_timescale": "Single timescale",
-              "abl_no_behavior": "No behaviour model", "abl_no_l3": "No Level 3 (trained)",
-              "ablation": "L3 removed at test", "abl_no_curriculum": "No curriculum",
+              "abl_no_behavior": "No behavior model", "abl_no_l3": "No Level 3 (trained)",
+              "ablation": "Level 3 removed at test", "abl_no_curriculum": "No curriculum",
               "abl_no_guard": "No deadline guard", "abl_proportional": "Proportional allocation",
               "abl_llf": "Least-laxity-first allocation"}
 
@@ -245,7 +249,7 @@ def table_ablation(s, scenarios, path):
                 cells += ["--"] * 3
             else:
                 any_row = True
-                cells += [fmt(r["cost_eur"], 0), fmt(r["service_quality"], 3), fmt(r["violation_rate_pct"], 2)]
+                cells += [fmt(r["cost_eur"], 1), fmt(r["service_quality"], 3), fmt(r["violation_rate_pct"], 2)]
         if any_row:
             lines.append(lab + " & " + " & ".join(cells) + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}"]
@@ -256,7 +260,7 @@ GENERAL = [("main", "residential", "ieee33", "test", "33-bus, residential"),
            ("general", "residential", "ieee69", "test", "69-bus, residential"),
            ("general", "acn_caltech", "ieee33", "test", "33-bus, ACN Caltech"),
            ("general", "acn_jpl", "ieee33", "test", "33-bus, ACN JPL"),
-           ("regime", "residential", "ieee33", "alt", "33-bus, 2019 prices")]
+           ("regime", "residential", "ieee33", "alt", "33-bus, 2019 days")]
 
 
 def table_general(s, path):
@@ -285,7 +289,7 @@ def table_stress(s, path):
     lines = [r"\begin{tabular}{@{}lrrrrrr@{}}", r"\toprule",
              r"Method & \multicolumn{2}{c}{S6} & \multicolumn{4}{c}{S7} \\",
              r"\cmidrule(lr){2-3}\cmidrule(lr){4-7}",
-             r" & Viol. & $V_{\min}$ & Viol. & Curt. & Unmet & SQ \\", r"\midrule"]
+             r" & Viol. & $V^{\min}$ & Viol. & Curt. & Unmet & SQ \\", r"\midrule"]
     for m in methods:
         a, b = row(s, "main", m, "S6"), row(s, "main", m, "S7")
         cells = (["--"] * 2 if a is None else [fmt(a["violation_rate_pct"], 2), fmt(a["min_voltage_pu"], 3)]) + \
@@ -297,16 +301,16 @@ def table_stress(s, path):
 
 
 def table_sensitivity(s, path):
-    rows = [("sens_delta0.0005", r"$\delta = 0.0005$"), ("main", r"Default"),
-            ("sens_delta0.002", r"$\delta = 0.002$"), ("sens_S10", r"$S_i = 10$ kVA"), ("sens_S14", r"$S_i = 14$ kVA")]
+    rows = [("sens_delta0.0005", r"$\delta = 0.0005$\,p.u."), ("main", r"Default"),
+            ("sens_delta0.002", r"$\delta = 0.002$\,p.u."), ("sens_S10", r"$S_i = 10$\,kVA"), ("sens_S14", r"$S_i = 14$\,kVA")]
     lines = [r"\begin{tabular}{@{}lrrrrr@{}}", r"\toprule",
-             r"Setting & Cost (\euro) & SQ & Viol.\ (\%) & $Q$ act.\ (\%) & Curt.\ (kWh) \\", r"\midrule"]
+             r"Setting & Cost (\euro) & SQ & Viol.\ (\%) & Q act.\ (\%) & Curt.\ (kWh) \\", r"\midrule"]
     for v, lab in rows:
         r = row(s, v, "nested", "S3")
         if r is None:
             continue
         lines.append(f"{lab} & {fmt(r['cost_eur'], 1)} & {fmt(r['service_quality'], 3)} & "
-                     f"{fmt(r['violation_rate_pct'], 3)} & {fmt(r['q_activation_pct'], 2)} & {fmt(r['curtailed_kwh'], 1)} \\\\")
+                     f"{fmt(r['violation_rate_pct'], 2)} & {fmt(r['q_activation_pct'], 2)} & {fmt(r['curtailed_kwh'], 1)} \\\\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     path.write_text("\n".join(lines) + "\n")
 
@@ -362,24 +366,32 @@ def table_decomp(s, path):
 
 
 def table_hyper(cfg: dict, path: pathlib.Path) -> None:
-    """Hyperparameters, read from configs/base.yaml (cannot drift from the code)."""
+    """Hyperparameters, read from configs/base.yaml and the agent classes (cannot drift from the code)."""
     t, d, pp, l2 = cfg["training"], cfg["training"]["ddpg"], cfg["training"]["ppo"], cfg["level2"]
+    rn = l2["revenue_neutral"]
+    import inspect
+    from ..agents.cpo import CPO
+    from ..agents.ppo_lagrangian import PPOLagrangian
+    defaults = lambda c: {k: v.default for k, v in inspect.signature(c.__init__).parameters.items()}  # noqa: E731
+    lag, cpo = defaults(PPOLagrangian), defaults(CPO)
 
     def thin(x):
         return f"{int(x):,}".replace(",", "\\,")
     rows = [
-        ("Level 1 (PPO)", "actor/critic 256--128--64, Beta policy"),
-        ("", f"lr {pp['lr']:g}, $\\gamma$ {pp['gamma']}, GAE $\\lambda$ {pp['gae_lambda']}, clip {pp['clip']}"),
-        ("", f"{pp['epochs']} epochs per update, entropy {pp['entropy']:g}"),
+        ("Level 1 (PPO)", "actor/critic 256--128--64, Beta policy, "
+                          f"lr {pp['lr']:g}, $\\gamma$ {pp['gamma']}, $\\lambda_{{\\mathrm{{GAE}}}}$ {pp['gae_lambda']}, "
+                          f"clip {pp['clip']}, {pp['epochs']} epochs per update, entropy {pp['entropy']:g}"),
         ("Level 2 (DDPG)", "actor/critic 256--128--64, shared, one-hot id"),
         ("", f"lr actor/critic {d['lr_actor']:g}/{d['lr_critic']:g}, $\\gamma$ {d['gamma']}, $\\tau$ {d['tau']}"),
         ("", f"batch {d['batch']}, buffer {thin(d['buffer'])}, warm-up {thin(d['warmup'])} transitions"),
-        ("", f"noise {d['noise_start']}$\\to${d['noise_end']} (decay {d['noise_decay']}/episode)"),
-        ("", f"residual scale $\\rho$ {l2.get('residual_scale', 1.0)}"),
-        ("", f"PI multiplier: $K_p$ {l2['revenue_neutral']['kp']}, $K_i$ {l2['revenue_neutral']['ki']}, "
-             f"EMA {l2['revenue_neutral']['ema']}, $\\omega\\in[{l2['revenue_neutral']['w_min']}, "
-             f"{l2['revenue_neutral']['w_max']}]$"),
+        ("", f"Gaussian action noise, std {d['noise_start']}$\\to${d['noise_end']} (factor {d['noise_decay']} "
+             f"per episode); residual scale $\\rho$ {l2.get('residual_scale', 1.0)}"),
+        ("Multiplier", f"$K_p$ {rn['kp']}, $K_i$ {rn['ki']}, EMA weight $\\alpha$ {rn['ema']}, "
+                       f"$\\omega\\in[{rn['w_min']}, {rn['w_max']}]$, $|K_i\\textstyle\\sum e|\\le{max(abs(rn['w_min']), abs(rn['w_max']))}$"),
         ("Training", f"{t['episodes']} episodes; curriculum window {cfg['curriculum']['window']}"),
+        ("Baselines", "same networks, learning rates, episodes and curriculum; safe RL: "
+                      f"$\\gamma$ {d['gamma']}, cost limit {lag['cost_limit']:g}, dual step {lag['lr_dual']:g} "
+                      f"(PPO-Lag.), KL radius {cpo['delta_kl']:g} (CPO)"),
         ("Level 3", f"$\\delta$ {cfg['voltage']['correction_margin']} p.u., $S_i$ {cfg['reactive_power']['s_rated_kva']} kVA, "
                     f"$\\le${cfg['voltage']['max_correction_iters']} (+{cfg['voltage']['max_fallback_iters']} when curtailing) power flows"),
     ]
@@ -421,9 +433,10 @@ def figures(s, d, art, out):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    plt.rcParams.update({"font.size": 7.5, "font.family": "serif", "pdf.fonttype": 42, "axes.linewidth": 0.6,
-                         "axes.edgecolor": "#52514e", "xtick.color": "#52514e", "ytick.color": "#52514e"})
-    fig, axes = plt.subplots(1, 2, figsize=(7.16, 2.0), gridspec_kw={"width_ratios": [1.25, 1]})
+    from .diagrams import FONT
+    plt.rcParams.update({**FONT, "font.size": 8, "axes.linewidth": 0.6, "axes.edgecolor": "#52514e",
+                         "xtick.color": "#52514e", "ytick.color": "#52514e"})
+    fig, axes = plt.subplots(1, 2, figsize=(7.16, 2.12))
     x = np.array([p for _, p in PEN])
 
     def line(ax, m, metric, lw=1.1):
@@ -438,7 +451,8 @@ def figures(s, d, art, out):
                     capsize=1.5, label=label(m), zorder=3 if m == "nested" else 2,
                     mec="white", mew=0.4)
         return y
-    # (a) paired: daily cost relative to the perfect-foresight LP-OPF on the same day
+    # (a) mean daily cost relative to the perfect-foresight LP-OPF (ratio of means); the
+    # interval resamples days, keeping both methods' costs of a day together (paired)
     rng = np.random.default_rng(2)
     sel = d[(d.variant == "main") & (d.fleet == "residential") & (d.network == "ieee33") & (d.split == "test")]
     ref = sel[sel.method == "lp_opf+L3"].set_index(["scenario", "episode"]).cost_eur
@@ -447,48 +461,49 @@ def figures(s, d, art, out):
         mm = sel[sel.method == m].set_index(["scenario", "episode"]).cost_eur
         y, lo, hi = [], [], []
         for sc, _ in PEN:
-            try:
-                r = 100.0 * (mm.loc[sc] / ref.loc[sc] - 1.0)
-            except KeyError:
-                r = pd.Series(dtype=float)
-            r = r.dropna()
-            if r.empty:
+            if sc not in mm.index.get_level_values(0) or sc not in ref.index.get_level_values(0):
                 y.append(np.nan); lo.append(np.nan); hi.append(np.nan)
                 continue
-            mval, l_, h_ = boot_ci(r.values, rng)
-            y.append(mval); lo.append(l_); hi.append(h_)
+            pair = pd.concat([mm.loc[sc], ref.loc[sc]], axis=1, join="inner").values
+            idx = rng.integers(0, len(pair), (BOOT, len(pair)))
+            boot = 100.0 * (pair[idx, 0].mean(axis=1) / pair[idx, 1].mean(axis=1) - 1.0)
+            y.append(100.0 * (pair[:, 0].mean() / pair[:, 1].mean() - 1.0))
+            lo.append(float(np.percentile(boot, 2.5))); hi.append(float(np.percentile(boot, 97.5)))
         y, lo, hi = map(np.asarray, (y, lo, hi))
         axes[0].errorbar(x, y, yerr=[y - lo, hi - y], color=col, ls=ls, marker=mk, ms=4.2,
                          lw=1.8 if m == "nested" else 1.0, elinewidth=0.6, capsize=1.5, label=label(m),
                          zorder=3 if m == "nested" else 2, mec="white", mew=0.4)
     axes[0].axhline(0.0, color="#52514e", lw=0.6)
-    axes[0].set_ylabel("Daily cost above LP-OPF$^\\ast$ (%)")
-    axes[0].set_title("(a) Cost relative to LP-OPF$^\\ast$ (paired by day)",
-                      fontsize=7.5, loc="left")
+    axes[0].set_ylabel("Cost above LP-OPF$^\\ast$ (%)")
+    axes[0].set_title("(a) Mean daily cost relative to LP-OPF$^\\ast$+L3", fontsize=8, loc="left")
     for m in ["uncoordinated", "tou", "flat_ddpg", "ppo_lag", "cpo", "hrl"]:
         line(axes[1], m, "violation_rate_pct")
+    axes[1].set_yscale("symlog", linthresh=0.1, linscale=0.6)
+    axes[1].set_ylim(-0.005, 15)
+    axes[1].set_yticks([0, 0.1, 1, 10], ["0", "0.1", "1", "10"])
+    axes[1].yaxis.set_minor_locator(matplotlib.ticker.NullLocator())
     zero = [row(s, "main", m, sc)["violation_rate_pct"] for m in
-            ["nested", "uncoordinated+L3", "tou+L3", "price_aware+L3", "lp_opf+L3"]
+            ["nested", "uncoordinated+L3", "tou+L3", "price_aware+L3", "lp_opf+L3"] + [m for m in LEARNED_ALL if "+L3" in m]
             for sc, _ in PEN if row(s, "main", m, sc) is not None]
     if zero:
-        axes[1].text(0.02, 0.96, f"nested and all +L3 controllers: max {max(zero):.2f}%",
-                     transform=axes[1].transAxes, fontsize=6.5, va="top", color="#52514e")
-    axes[1].set_ylabel("Violation rate (%)")
-    axes[1].set_title("(b) Voltage violations without Level 3", fontsize=7.5, loc="left")
+        axes[1].text(0.02, 0.98, f"Nested and every +L3 controller: {max(zero):.2f}%",
+                     transform=axes[1].transAxes, fontsize=7, va="top", color="#52514e")
+    axes[1].set_ylabel("Violation rate (%, symlog)")
+    axes[1].set_title("(b) Violation rate of controllers without Level 3", fontsize=8, loc="left")
     for ax in axes:
-        ax.set_xticks(x, [f"{p}%\n{sc}" for sc, p in PEN])
-        ax.set_xlabel("EV penetration")
+        ax.set_xticks(x, [f"{p}% ({sc})" for sc, p in PEN])
+        ax.set_xlabel("EV penetration (scenario)", labelpad=2)
         ax.grid(axis="y", lw=0.3, color="#d9d8d4")
         ax.spines[["top", "right"]].set_visible(False)
-    handles, labels = [], []
+    handles, labels = [], []                  # one legend: style and colour identify a method in both panels
     for ax in axes:
         for h, lab in zip(*ax.get_legend_handles_labels()):
             if lab not in labels:
                 handles.append(h)
                 labels.append(lab)
-    fig.legend(handles, labels, loc="lower center", ncol=len(labels), frameon=False, fontsize=6.5,
-               bbox_to_anchor=(0.5, -0.02), handlelength=2.2, columnspacing=1.0)
-    fig.tight_layout(rect=(0, 0.1, 1, 1))
+    fig.legend(handles, labels, loc="lower center", ncol=4, frameon=False, fontsize=7, bbox_to_anchor=(0.5, 0.0),
+               handlelength=2.4, columnspacing=1.6)
+    fig.tight_layout(rect=(0, 0.14, 1, 1), w_pad=2.0)
     fig.savefig(out / "fig_scenarios.pdf", bbox_inches="tight")
     plt.close(fig)
 
@@ -527,7 +542,11 @@ MACRO_METRICS = [("cost", "cost_eur", 1), ("cpk", "cost_per_kwh", 4), ("sq", "se
 LEARNED_ALL = ["flat_ddpg", "flat_ddpg+L3", "ppo_lag", "ppo_lag+L3", "cpo", "cpo+L3", "hrl", "hrl+L3"]
 
 
-def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
+DESIGN_ABL = ["abl_no_prior", "abl_no_l1", "abl_flat_timescale", "abl_no_curriculum", "abl_no_guard",
+              "abl_proportional"]
+
+
+def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg, raw=None, spread=None):
     N, C = Numbers(), Claims()
     default = ("residential", "ieee33", "test")
     for _, r in s.iterrows():                       # every summary row -> macros
@@ -696,6 +715,8 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
             C.add(f"decomp_{mm}_costlier_than_plan_{sc}", r["cost_eur"] > plan["cost_eur"])
             C.add(f"decomp_{mm}_less_curt_than_plan_{sc}", r["curtailed_kwh"] < plan["curtailed_kwh"])
             C.add(f"decomp_{mm}_less_unmet_than_plan_{sc}", r["unmet_kwh"] < plan["unmet_kwh"])
+            C.add(f"decomp_{mm}_more_unmet_than_plan_{sc}", r["unmet_kwh"] > plan["unmet_kwh"],
+                  f"{r['unmet_kwh']:.1f} vs {plan['unmet_kwh']:.1f}")
         # plan (no learning) versus the per-vehicle heuristic under stress
     plan7, pa7 = get("plan+L3", "S7", "decomp"), get("price_aware+L3", "S7")
     if plan7 is not None and pa7 is not None:
@@ -729,8 +750,15 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
         N.add("gen gap max", max(gap_g), 1)
     C.add("general_nested_zero_viol", gen_ok_v)
     C.add("general_nested_between_pa_and_unc", gen_between)
-    C.add("general_nested_sq_below_pa_caltech", any(k.endswith("ACN Caltech") and v[0] < v[1] for k, v in gen_sq.items()),
-          json.dumps(gen_sq))
+    # service quality: lowest at the Caltech workplace site for every reference method
+    sq_set = {m: {name: row(s, v, m, "S3", f, n, sp)["service_quality"] for v, f, n, sp, name in GENERAL
+                  if row(s, v, m, "S3", f, n, sp) is not None}
+              for m in ("uncoordinated", "price_aware+L3", "lp_opf+L3", "nested")}
+    cal = "33-bus, ACN Caltech"
+    if all(cal in v for v in sq_set.values()):
+        C.add("gen_caltech_sq_lowest_all", all(v[cal] < min(x for k, x in v.items() if k != cal) for v in sq_set.values()),
+              json.dumps({m: {k: round(float(x), 4) for k, x in v.items()} for m, v in sq_set.items()}))
+        N.add("gen sq caltech max", max(v[cal] for v in sq_set.values()), 3, rnd="up")
     # Level-3 sensitivity: inverter rating
     s10, s12, s14 = get("nested", "S3", "sens_S10"), get("nested", "S3"), get("nested", "S3", "sens_S14")
     if s10 is not None and s14 is not None:
@@ -775,6 +803,84 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
                 if pa[col] > 0:
                     N.add(f"reduction {k} nested pa {sc}", 100 * (1 - nst[col] / pa[col]), 0)
 
+    # training-seed spread of the mean daily cost at S3 (learned methods)
+    if spread is not None and len(spread):
+        sp = spread[(spread.variant == "main") & (spread.scenario == "S3") & (spread.fleet == "residential")
+                    & (spread.network == "ieee33") & (spread.split == "test")].set_index("method").cost_eur
+        base_l = [m for m in LEARNED_ALL if "+L3" not in m and m in sp.index]
+        if "nested" in sp.index and base_l:
+            N.add("seed std nested S3", sp["nested"], 1)
+            N.add("seed std learned min S3", min(sp[m] for m in base_l), 0)
+            N.add("seed std learned max S3", max(sp[m] for m in base_l), 0)
+            C.add("seed_std_nested_smallest_S3", sp["nested"] < min(sp[m] for m in base_l),
+                  json.dumps({m: round(float(sp[m]), 2) for m in ["nested"] + base_l}))
+    # ablations: do the per-seed mean costs separate from those of the complete framework?
+    if raw is not None:
+        tr = raw[(raw.fleet == "residential") & (raw.network == "ieee33") & (raw.split == "test")]
+        over = []
+        for sc in ("S3", "S5"):
+            b = tr[(tr.variant == "abl_base") & (tr.scenario == sc)].groupby("train_seed").cost_eur.mean()
+            if b.empty:
+                continue
+            for v in ABL_LABELS:
+                if v == "abl_base":
+                    continue
+                m = "nested-noL3" if v in ("abl_no_l3", "ablation") else "nested"
+                a = tr[(tr.variant == v) & (tr.method == m) & (tr.scenario == sc)].groupby("train_seed").cost_eur.mean()
+                if a.empty:
+                    continue
+                sep = bool(a.min() > b.max() or a.max() < b.min())
+                info = f"{[round(float(x), 1) for x in a]} vs {[round(float(x), 1) for x in b]}"
+                C.add(f"abl_{v}_seed_separated_{sc}", sep, info)
+                C.add(f"abl_{v}_seed_overlap_{sc}", not sep, info)
+                if v in DESIGN_ABL and not sep:
+                    over.append(abs(100 * (a.mean() / b.mean() - 1)))
+        if over:
+            N.add("abl overlap delta max", max(over), 1, rnd="up")
+    # statistics table: +L3 rows shown, Holm over all comparisons
+    if len(t_cost):
+        tc_i, ts_i = t_cost.set_index("method"), t_sq.set_index("method")
+        pairs = [(m, m + "+L3") for m in tc_i.index if not m.endswith("+L3") and m + "+L3" in tc_i.index]
+        N.add("holm family", len(t_cost), 0)
+        N.add("stats l3 diff max", max(abs(tc_i.loc[a, "mean_diff"] - tc_i.loc[b, "mean_diff"]) for a, b in pairs), 1,
+              rnd="up")
+        C.add("stats_l3_same_cost_significance",
+              all((tc_i.loc[a, "p_holm"] < 0.05) == (tc_i.loc[b, "p_holm"] < 0.05) for a, b in pairs))
+        lower = [m for m in ts_i.index if ts_i.loc[m, "mean_diff"] < 0 and ts_i.loc[m, "p_holm"] < 0.05]
+        C.add("nested_sq_sig_lower_only_unc_cpo_S3",
+              sorted(lower) == sorted(["uncoordinated", "uncoordinated+L3", "cpo", "cpo+L3"]), str(lower))
+        N.add("sq diff absmax S3", float(ts_i.mean_diff.abs().max()), 3, rnd="up")
+        N.add("sq pholm max unc cpo S3", float(ts_i.loc[["uncoordinated", "uncoordinated+L3", "cpo", "cpo+L3"],
+                                                        "p_holm"].max()), 3, rnd="up")
+    # stress: in S7 only the perfect-foresight LP-OPF keeps the floor
+    s7 = {m: get(m, "S7") for m in ["uncoordinated", "tou", "uncoordinated+L3", "tou+L3", "price_aware+L3",
+                                    "lp_opf+L3", "nested"]}
+    if all(v is not None for v in s7.values()):
+        C.add("s7_only_lp_zero_viol", s7["lp_opf+L3"]["violation_rate_pct"] == 0.0
+              and all(v["violation_rate_pct"] > 0 for m, v in s7.items() if m != "lp_opf+L3"),
+              json.dumps({m: round(float(v["violation_rate_pct"]), 3) for m, v in s7.items()}))
+    # generalization: workplace sessions
+    for fl in ("acn_caltech", "acn_jpl"):
+        g = {m: row(s, "general", m, "S3", fl, "ieee33", "test") for m in ("uncoordinated", "price_aware+L3", "lp_opf+L3")}
+        if all(v is not None for v in g.values()):
+            C.add(f"gen_unc_zero_viol_{fl}", g["uncoordinated"]["violation_rate_pct"] == 0.0)
+            C.add(f"gen_unc_viol_below_001_{fl}", g["uncoordinated"]["violation_rate_pct"] < 0.01,
+                  f"{g['uncoordinated']['violation_rate_pct']:.4f}")
+            if fl == "acn_jpl":
+                N.add("gen unc viol jpl", g["uncoordinated"]["violation_rate_pct"], 3, rnd="up")
+            C.add(f"gen_pa_cheaper_than_lp_{fl}", g["price_aware+L3"]["cost_eur"] < g["lp_opf+L3"]["cost_eur"],
+                  f"{g['price_aware+L3']['cost_eur']:.1f} vs {g['lp_opf+L3']['cost_eur']:.1f}")
+    # reactive capability of one charger at full active power
+    rpc = cfg["reactive_power"]
+    N.add("q full power", math.sqrt(max(rpc["s_rated_kva"] ** 2 - rpc["charger_p_max_kw"] ** 2, 0.0)), 1)
+    N.add("s rated", rpc["s_rated_kva"], 0)
+    N.add("s rated S7", rpc["s_rated_kva"] * cfg["evaluation"]["scenarios"]["S7"]["s_rated_derate"], 0)
+    N.add("p charger", rpc["charger_p_max_kw"], 0)
+    N.add("transformer cap", cfg["aggregators"]["transformer_cap_kw"], 0)
+    rt = cfg["retail"]                        # corridor of the neutral Level-1 action (0.5, 0.5)
+    half = 0.5 * (rt["min_corridor_width"] + 0.5 * (rt["max_corridor_width"] - rt["min_corridor_width"]))
+    N.add("neutral lo", cfg["behavior"]["lambda_ref"] - half, 3)
+    N.add("neutral hi", cfg["behavior"]["lambda_ref"] + half, 3)
     for _, r in t_cost.iterrows():
         N.add(f"diff cost {r['method']}", abs(r["mean_diff"]), 1)
         N.add(f"pholm cost {r['method']}", "<0.001" if r["p_holm"] < 0.001 else f"{r['p_holm']:.3f}")
@@ -816,6 +922,14 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg):
     N.add("train seeds", int(len(list((art / "runs").glob("nested_residential_ieee33_none_s*")))), 0)
     N.add("train episodes", int(cfg["training"]["episodes"]), 0)
     N.add("aux seeds", int(len(list((art / "runs").glob("nested_residential_ieee33_no_l1_s*")))), 0)
+    words = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+    counts = {"train seeds": len(list((art / "runs").glob("nested_residential_ieee33_none_s*"))),
+              "aux seeds": len(list((art / "runs").glob("nested_residential_ieee33_no_l1_s*")))}
+    if tune_f.exists():
+        counts["tune seeds"] = len(json.loads((art / "tuning" / "selected.json").read_text())["seeds"])
+    for k, n in counts.items():                       # IEEE style: small counts spelled out in the text
+        N.add(f"{k} word", words[n], 0)
+        N.add(f"{k} word cap", words[n].capitalize(), 0)
     hh = cfg["aggregators"]["households"]
     if hh:
         for sc, spec in cfg["evaluation"]["scenarios"].items():      # penetration = EVs / households
@@ -841,11 +955,16 @@ def build_all(art: pathlib.Path, out: pathlib.Path) -> None:
     d = per_day(df)
     s = summarise(d)
     s.to_csv(out / "summary.csv", index=False)
-    seed_spread(df).to_csv(out / "seed_spread.csv", index=False)
+    spread = seed_spread(df)
+    spread.to_csv(out / "seed_spread.csv", index=False)
     table_main(s, "S3", out / "tab_main_s3.tex")
+    import yaml
+    cfg = yaml.safe_load(open(ROOT / "configs" / "base.yaml"))
+    hh = cfg["aggregators"]["households"]
+    pen = {sc: round(100 * spec["n_ev"] / hh) for sc, spec in cfg["evaluation"]["scenarios"].items()}
     table_scenarios(s, ["uncoordinated", "tou", "uncoordinated+L3", "tou+L3", "price_aware+L3", "lp_opf+L3",
                         "flat_ddpg", "ppo_lag", "cpo", "hrl", "nested"],
-                    ["S1", "S2", "S3", "S4", "S5"], out / "tab_scenarios.tex")
+                    ["S1", "S2", "S3", "S4", "S5"], pen, out / "tab_scenarios.tex")
     others = [m for m in ORDER if m != "nested"]
     t_cost = paired_tests(d, "nested", others, "cost_eur", "S3")
     t_sq = paired_tests(d, "nested", others, "service_quality", "S3")
@@ -859,10 +978,8 @@ def build_all(art: pathlib.Path, out: pathlib.Path) -> None:
     table_decomp(s, out / "tab_decomp.tex")
     compute_df = table_compute(art, out / "tab_compute.tex")
     figures(s, d, art, out)
-    import yaml
     from .diagrams import build_diagrams
-    cfg = yaml.safe_load(open(ROOT / "configs" / "base.yaml"))
     table_hyper(cfg, out / "tab_hyper.tex")
     build_diagrams(cfg, out)
-    numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg)
+    numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg, raw=df, spread=spread)
     print(f"== analysis: tables, figures and numbers written to {out}")

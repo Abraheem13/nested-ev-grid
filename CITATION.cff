@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this code, please cite the article below."
-title: "Charge Fully, Stay Safe: Nested Multi-Timescale Learning for EV Charging Coordination"
+title: "Nested Multi-Timescale Learning and Control for Voltage-Aware EV Charging Coordination"
 type: software
 repository-code: "https://github.com/Abraheem13/nested-ev-grid"
 authors:
@@ -18,7 +18,7 @@ authors:
     affiliation: "Sunway University"
 preferred-citation:
   type: article
-  title: "Charge Fully, Stay Safe: Nested Multi-Timescale Learning for EV Charging Coordination"
+  title: "Nested Multi-Timescale Learning and Control for Voltage-Aware EV Charging Coordination"
   status: submitted
   journal: "IEEE Transactions on Transportation Electrification"
   authors:

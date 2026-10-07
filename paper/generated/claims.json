@@ -291,6 +291,10 @@
     "holds": false,
     "detail": ""
   },
+  "decomp_price_aware_L3_more_unmet_than_plan_S3": {
+    "holds": true,
+    "detail": "26.4 vs 23.9"
+  },
   "decomp_nested_planprice_cheaper_than_plan_S3": {
     "holds": false,
     "detail": ""
@@ -306,6 +310,10 @@
   "decomp_nested_planprice_less_unmet_than_plan_S3": {
     "holds": false,
     "detail": ""
+  },
+  "decomp_nested_planprice_more_unmet_than_plan_S3": {
+    "holds": true,
+    "detail": "27.4 vs 23.9"
   },
   "decomp_nested_flatprice_cheaper_than_plan_S3": {
     "holds": false,
@@ -323,6 +331,10 @@
     "holds": true,
     "detail": ""
   },
+  "decomp_nested_flatprice_more_unmet_than_plan_S3": {
+    "holds": false,
+    "detail": "19.4 vs 23.9"
+  },
   "decomp_nested_cheaper_than_plan_S3": {
     "holds": false,
     "detail": ""
@@ -338,6 +350,10 @@
   "decomp_nested_less_unmet_than_plan_S3": {
     "holds": false,
     "detail": ""
+  },
+  "decomp_nested_more_unmet_than_plan_S3": {
+    "holds": true,
+    "detail": "25.7 vs 23.9"
   },
   "decomp_price_aware_L3_cheaper_than_plan_S7": {
     "holds": true,
@@ -355,6 +371,10 @@
     "holds": false,
     "detail": ""
   },
+  "decomp_price_aware_L3_more_unmet_than_plan_S7": {
+    "holds": true,
+    "detail": "106.1 vs 37.0"
+  },
   "decomp_nested_planprice_cheaper_than_plan_S7": {
     "holds": false,
     "detail": ""
@@ -370,6 +390,10 @@
   "decomp_nested_planprice_less_unmet_than_plan_S7": {
     "holds": false,
     "detail": ""
+  },
+  "decomp_nested_planprice_more_unmet_than_plan_S7": {
+    "holds": true,
+    "detail": "42.8 vs 37.0"
   },
   "decomp_nested_flatprice_cheaper_than_plan_S7": {
     "holds": false,
@@ -387,6 +411,10 @@
     "holds": true,
     "detail": ""
   },
+  "decomp_nested_flatprice_more_unmet_than_plan_S7": {
+    "holds": false,
+    "detail": "30.1 vs 37.0"
+  },
   "decomp_nested_cheaper_than_plan_S7": {
     "holds": false,
     "detail": ""
@@ -403,6 +431,10 @@
     "holds": false,
     "detail": ""
   },
+  "decomp_nested_more_unmet_than_plan_S7": {
+    "holds": true,
+    "detail": "38.2 vs 37.0"
+  },
   "plan_less_unmet_than_pa_S7": {
     "holds": true,
     "detail": "37.0 vs 106.1"
@@ -415,9 +447,9 @@
     "holds": true,
     "detail": ""
   },
-  "general_nested_sq_below_pa_caltech": {
-    "holds": false,
-    "detail": "{\"33 bus residential\": [0.997, 0.997], \"69 bus residential\": [0.997, 0.997], \"33 bus ACN Caltech\": [0.97, 0.967], \"33 bus ACN JPL\": [0.994, 0.994], \"33 bus 2019 prices\": [0.997, 0.997]}"
+  "gen_caltech_sq_lowest_all": {
+    "holds": true,
+    "detail": "{\"uncoordinated\": {\"33-bus, residential\": 0.9996, \"69-bus, residential\": 0.9996, \"33-bus, ACN Caltech\": 0.9698, \"33-bus, ACN JPL\": 0.9969, \"33-bus, 2019 days\": 0.9996}, \"price_aware+L3\": {\"33-bus, residential\": 0.9968, \"69-bus, residential\": 0.9967, \"33-bus, ACN Caltech\": 0.9674, \"33-bus, ACN JPL\": 0.994, \"33-bus, 2019 days\": 0.9971}, \"lp_opf+L3\": {\"33-bus, residential\": 0.9923, \"69-bus, residential\": 0.9922, \"33-bus, ACN Caltech\": 0.948, \"33-bus, ACN JPL\": 0.9878, \"33-bus, 2019 days\": 0.993}, \"nested\": {\"33-bus, residential\": 0.9968, \"69-bus, residential\": 0.9972, \"33-bus, ACN Caltech\": 0.9704, \"33-bus, ACN JPL\": 0.9937, \"33-bus, 2019 days\": 0.9972}}"
   },
   "sens_smaller_rating_more_curtailment": {
     "holds": true,
@@ -494,6 +526,182 @@
   "nested_less_unmet_than_pa_S7": {
     "holds": true,
     "detail": "38.2 vs 106.1"
+  },
+  "seed_std_nested_smallest_S3": {
+    "holds": true,
+    "detail": "{\"nested\": 3.12, \"flat_ddpg\": 53.66, \"ppo_lag\": 43.71, \"cpo\": 10.89, \"hrl\": 24.53}"
+  },
+  "abl_abl_no_prior_seed_separated_S3": {
+    "holds": true,
+    "detail": "[675.4, 725.3, 688.8] vs [644.8, 647.0, 645.4]"
+  },
+  "abl_abl_no_prior_seed_overlap_S3": {
+    "holds": false,
+    "detail": "[675.4, 725.3, 688.8] vs [644.8, 647.0, 645.4]"
+  },
+  "abl_abl_no_l1_seed_separated_S3": {
+    "holds": false,
+    "detail": "[645.0, 648.3, 635.1] vs [644.8, 647.0, 645.4]"
+  },
+  "abl_abl_no_l1_seed_overlap_S3": {
+    "holds": true,
+    "detail": "[645.0, 648.3, 635.1] vs [644.8, 647.0, 645.4]"
+  },
+  "abl_abl_flat_timescale_seed_separated_S3": {
+    "holds": false,
+    "detail": "[645.4, 658.1, 650.0] vs [644.8, 647.0, 645.4]"
+  },
+  "abl_abl_flat_timescale_seed_overlap_S3": {
+    "holds": true,
+    "detail": "[645.4, 658.1, 650.0] vs [644.8, 647.0, 645.4]"
+  },
+  "abl_abl_no_behavior_seed_separated_S3": {
+    "holds": true,
+    "detail": "[636.5, 637.9, 643.6] vs [644.8, 647.0, 645.4]"
+  },
+  "abl_abl_no_behavior_seed_overlap_S3": {
+    "holds": false,
+    "detail": "[636.5, 637.9, 643.6] vs [644.8, 647.0, 645.4]"
+  },
+  "abl_abl_no_l3_seed_separated_S3": {
+    "holds": false,
+    "detail": "[652.0, 646.1, 647.4] vs [644.8, 647.0, 645.4]"
+  },
+  "abl_abl_no_l3_seed_overlap_S3": {
+    "holds": true,
+    "detail": "[652.0, 646.1, 647.4] vs [644.8, 647.0, 645.4]"
+  },
+  "abl_ablation_seed_separated_S3": {
+    "holds": false,
+    "detail": "[644.7, 647.0, 645.4] vs [644.8, 647.0, 645.4]"
+  },
+  "abl_ablation_seed_overlap_S3": {
+    "holds": true,
+    "detail": "[644.7, 647.0, 645.4] vs [644.8, 647.0, 645.4]"
+  },
+  "abl_abl_no_curriculum_seed_separated_S3": {
+    "holds": true,
+    "detail": "[638.8, 639.4, 639.6] vs [644.8, 647.0, 645.4]"
+  },
+  "abl_abl_no_curriculum_seed_overlap_S3": {
+    "holds": false,
+    "detail": "[638.8, 639.4, 639.6] vs [644.8, 647.0, 645.4]"
+  },
+  "abl_abl_no_guard_seed_separated_S3": {
+    "holds": false,
+    "detail": "[649.1, 658.1, 646.5] vs [644.8, 647.0, 645.4]"
+  },
+  "abl_abl_no_guard_seed_overlap_S3": {
+    "holds": true,
+    "detail": "[649.1, 658.1, 646.5] vs [644.8, 647.0, 645.4]"
+  },
+  "abl_abl_proportional_seed_separated_S3": {
+    "holds": false,
+    "detail": "[676.8, 659.5, 646.1] vs [644.8, 647.0, 645.4]"
+  },
+  "abl_abl_proportional_seed_overlap_S3": {
+    "holds": true,
+    "detail": "[676.8, 659.5, 646.1] vs [644.8, 647.0, 645.4]"
+  },
+  "abl_abl_no_prior_seed_separated_S5": {
+    "holds": true,
+    "detail": "[846.6, 894.0, 855.8] vs [806.5, 809.0, 804.3]"
+  },
+  "abl_abl_no_prior_seed_overlap_S5": {
+    "holds": false,
+    "detail": "[846.6, 894.0, 855.8] vs [806.5, 809.0, 804.3]"
+  },
+  "abl_abl_no_l1_seed_separated_S5": {
+    "holds": false,
+    "detail": "[806.5, 815.2, 792.2] vs [806.5, 809.0, 804.3]"
+  },
+  "abl_abl_no_l1_seed_overlap_S5": {
+    "holds": true,
+    "detail": "[806.5, 815.2, 792.2] vs [806.5, 809.0, 804.3]"
+  },
+  "abl_abl_flat_timescale_seed_separated_S5": {
+    "holds": false,
+    "detail": "[804.7, 820.5, 813.2] vs [806.5, 809.0, 804.3]"
+  },
+  "abl_abl_flat_timescale_seed_overlap_S5": {
+    "holds": true,
+    "detail": "[804.7, 820.5, 813.2] vs [806.5, 809.0, 804.3]"
+  },
+  "abl_abl_no_behavior_seed_separated_S5": {
+    "holds": true,
+    "detail": "[799.3, 800.8, 799.8] vs [806.5, 809.0, 804.3]"
+  },
+  "abl_abl_no_behavior_seed_overlap_S5": {
+    "holds": false,
+    "detail": "[799.3, 800.8, 799.8] vs [806.5, 809.0, 804.3]"
+  },
+  "abl_abl_no_l3_seed_separated_S5": {
+    "holds": false,
+    "detail": "[818.5, 806.9, 806.2] vs [806.5, 809.0, 804.3]"
+  },
+  "abl_abl_no_l3_seed_overlap_S5": {
+    "holds": true,
+    "detail": "[818.5, 806.9, 806.2] vs [806.5, 809.0, 804.3]"
+  },
+  "abl_abl_no_curriculum_seed_separated_S5": {
+    "holds": true,
+    "detail": "[797.9, 798.7, 795.4] vs [806.5, 809.0, 804.3]"
+  },
+  "abl_abl_no_curriculum_seed_overlap_S5": {
+    "holds": false,
+    "detail": "[797.9, 798.7, 795.4] vs [806.5, 809.0, 804.3]"
+  },
+  "abl_abl_no_guard_seed_separated_S5": {
+    "holds": true,
+    "detail": "[814.5, 820.1, 809.1] vs [806.5, 809.0, 804.3]"
+  },
+  "abl_abl_no_guard_seed_overlap_S5": {
+    "holds": false,
+    "detail": "[814.5, 820.1, 809.1] vs [806.5, 809.0, 804.3]"
+  },
+  "abl_abl_proportional_seed_separated_S5": {
+    "holds": false,
+    "detail": "[854.1, 823.2, 808.1] vs [806.5, 809.0, 804.3]"
+  },
+  "abl_abl_proportional_seed_overlap_S5": {
+    "holds": true,
+    "detail": "[854.1, 823.2, 808.1] vs [806.5, 809.0, 804.3]"
+  },
+  "stats_l3_same_cost_significance": {
+    "holds": true,
+    "detail": ""
+  },
+  "nested_sq_sig_lower_only_unc_cpo_S3": {
+    "holds": true,
+    "detail": "['uncoordinated', 'uncoordinated+L3', 'cpo', 'cpo+L3']"
+  },
+  "s7_only_lp_zero_viol": {
+    "holds": true,
+    "detail": "{\"uncoordinated\": 8.999, \"tou\": 10.622, \"uncoordinated+L3\": 0.349, \"tou+L3\": 0.169, \"price_aware+L3\": 0.157, \"lp_opf+L3\": 0.0, \"nested\": 0.012}"
+  },
+  "gen_unc_zero_viol_acn_caltech": {
+    "holds": true,
+    "detail": ""
+  },
+  "gen_unc_viol_below_001_acn_caltech": {
+    "holds": true,
+    "detail": "0.0000"
+  },
+  "gen_pa_cheaper_than_lp_acn_caltech": {
+    "holds": false,
+    "detail": "121.3 vs 119.7"
+  },
+  "gen_unc_zero_viol_acn_jpl": {
+    "holds": false,
+    "detail": ""
+  },
+  "gen_unc_viol_below_001_acn_jpl": {
+    "holds": true,
+    "detail": "0.0042"
+  },
+  "gen_pa_cheaper_than_lp_acn_jpl": {
+    "holds": true,
+    "detail": "194.1 vs 197.1"
   },
   "tune_llf_selected": {
     "holds": true,

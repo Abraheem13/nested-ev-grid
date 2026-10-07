@@ -1,4 +1,4 @@
-\subsection{What the learned levels add}
+\subsection{Role of Learning}
 \label{sec:disc-learning}
 At nominal load, learning does not lower the energy bill relative to a
 well-designed rule: the price-aware heuristic, which executes the Level-2 plan
@@ -6,28 +6,36 @@ per vehicle, is cheaper than the nested controller,% claim: pa_cheaper_than_nest
 \ and neither the learned prices nor the learned dispatch reduce cost relative
 to the plan (Table~\ref{tab:decomp}).% claim: decomp_nested_planprice_costlier_than_plan_S3
 % claim: decomp_nested_flatprice_costlier_than_plan_S3
-\ What learned dispatch provides is a margin: spreading charging away from the
-very cheapest slots keeps voltages further from the floor and leaves Level~3
-more headroom, which matters only on the worst days (S7). It needs the plan as
-a starting point: learned from scratch, the same dispatch is costlier at every
-penetration level we tested (Table~\ref{tab:ablation}).% claim: abl_abl_no_prior_costlier_S3
+\ The learned levels reduce curtailment, which mattered under stress
+(S7);% claim: decomp_nested_less_curt_than_plan_S7
+\ the lower unmet energy under stress comes from least-laxity-first
+allocation, not from learning.% claim: plan_less_unmet_than_pa_S7
+% claim: decomp_nested_more_unmet_than_plan_S7
+\ Learned dispatch needs the plan as a starting point: learned from scratch,
+it is costlier at both penetration levels tested (S3 and
+S5).% claim: abl_abl_no_prior_costlier_S3
 % claim: abl_abl_no_prior_costlier_S5
-\ We therefore see the nested design not as a way to beat optimization on cost
-but as a way to keep learned components where they help while planning and
-physics handle the rest.
+\ The nested design is therefore not a way to beat optimization on cost but a
+way to keep learned components where they help while planning and physics
+handle the rest.
 
-\subsection{Scope of the voltage guarantee}
-Level~3b is corrective control on the simulated quasi-static state, not an a
+\subsection{Scope of the Voltage Correction}
+Level~3 is corrective control on the simulated quasi-static state, not an a
 priori guarantee. It restores the floor whenever the reactive headroom of the
 plugged-in chargers suffices, and otherwise sheds EV power until the floor is
-met or the fallback has run its course (Section~\ref{sec:method}). Two consequences follow. First, the
-inverter apparent-power rating is the design variable that buys voltage
-margin: Table~\ref{tab:sensitivity} reports the effect of $S_i$, and S7 shows
-the behaviour when the rating is halved. Second, the correction acts at the
-\SI{60}{s} resolution of the simulation; switching transients and sub-cycle
-dynamics are outside the claim, as for every quasi-static study.
+met or the iteration limit is reached (Section~\ref{sec:method}). Three
+consequences follow. First, the inverter apparent-power rating sets the
+voltage margin: Section~\ref{sec:res-sens} reports the effect of $S_i$, and S7
+the behavior when the reactive capability is halved. Second, we assume, as
+in~\cite{leemput2015}, that a charger can supply reactive power at any active
+power, including when it does not charge; chargers without this capability
+offer only the curtailment fallback. Third, the floor is applied at the
+medium-voltage (\SI{12.66}{kV}) buses of the test feeders; drops in service transformers and
+secondary circuits are not modeled, and the correction acts at the 60-s
+resolution of the simulation, so switching transients and sub-cycle dynamics
+are outside its scope, as in any quasi-static study.
 
-\subsection{Assumptions and limitations}
+\subsection{Assumptions and Limitations}
 \emph{Information.} The plan, the learned agents and the heuristic know each
 plugged-in vehicle's departure time and remaining need, as in managed-charging
 programs where drivers enter them~\cite{lee2019acn}. They do not know future
@@ -35,11 +43,12 @@ arrivals. Only the LP-OPF reference sees the whole day in advance.
 \emph{Network.} The feeders are balanced, radial and single-phase equivalent;
 unbalanced three-phase operation can change the voltage sensitivities on which
 the correction step relies.
-\emph{Behaviour.} The acceptance model~\eqref{eq:fishbein} is stylized. The
+\emph{Behavior.} The acceptance model~\eqref{eq:fishbein} is stylized. The
 voltage layer does not depend on it, but the value of price signals does.
 \emph{Fleets.} The residential fleet is synthetic with stated parameters; the
 ACN experiments use recorded sessions from workplace sites.
 \emph{Data.} Household loads (Pecan Street, United States) and day-ahead prices
 (Netherlands) come from different systems; they provide realistic daily shapes,
-not a model of one particular utility. Adaptation to structural market change
-is not tested beyond the 2019 price regime.
+not a model of one particular utility. Training and test days share the
+base-load profile and differ in prices, fleets and noise. Adaptation to
+structural market change is not tested beyond the 2019 price regime.
