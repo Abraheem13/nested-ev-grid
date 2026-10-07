@@ -206,6 +206,65 @@ def fig_l3_loop(out: pathlib.Path) -> None:
     plt.close(fig)
 
 
+def fig_pipeline(cfg: dict, out: pathlib.Path, n_seeds: int, n_aux: int) -> None:
+    """Study pipeline from public data to every reported number (reproduce.py), drawn
+    at its printed size (one column); counts are read from the configuration."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import FancyBboxPatch
+    plt.rcParams.update(FONT)
+    W, H = 3.45, 2.42
+    fig = plt.figure(figsize=(W, H))
+    ax = fig.add_axes((0, 0, 1, 1))
+    ax.set_xlim(0, W)
+    ax.set_ylim(0, H)
+    ax.set_axis_off()
+    fs = 6.6
+    d, ev, tr = cfg["data"], cfg["evaluation"], cfg["training"]
+    yrs = lambda k: ", ".join(str(y) for y in d[k])  # noqa: E731
+    bands = [
+        ("Data", "#dfe9f7", "#2a5a9a",
+         [f"ENTSO-E prices\n{yrs('alt_regime_years')}, {yrs('train_years')}, {yrs('test_years')}",
+          "Pecan Street\nhousehold load", "ACN-Data\nsessions", "MATPOWER\n33-/69-bus"]),
+        ("Simulation", "#ece5f5", "#5b3f8c",
+         [f"Fleets\n({cfg['aggregators']['households']} households)", "Driver acceptance\n(Fishbein model)",
+          f"AC power flow\nevery {cfg['simulation']['resolution_s']} s"]),
+        ("Training", "#fbe8d6", "#a2561b",
+         [f"Curriculum,\n{tr['episodes']} episodes", f"{n_seeds} seeds\n({n_aux} for ablations)",
+          "Tariff calibration\n(training days)"]),
+        ("Evaluation", "#dcefe2", "#2c7a4b",
+         [f"{ev['episodes']} held-out\ntest days, paired", f"S1–S{len(ev['scenarios'])},\n8 baselines (+L3)",
+          "Bootstrap CI,\nHolm–Wilcoxon"]),
+        ("Outputs", "#f8dede", "#a12a2a",
+         ["Tables, figures and number macros; every claim checked on the data\n(one command: reproduce.py)"]),
+    ]
+    x0, lab_w, gap, top = 0.03, 0.5, 0.06, H - 0.02
+    bh = [0.43, 0.42, 0.42, 0.42, 0.32]
+    y = top
+    centers = []
+    for (name, tint, edge, boxes), h in zip(bands, bh):
+        y -= h
+        ax.add_patch(FancyBboxPatch((x0, y), W - 2 * x0, h, boxstyle="round,pad=0,rounding_size=0.04",
+                                    fc=tint, ec="none"))
+        ax.text(x0 + 0.04, y + h / 2, name, fontsize=7, fontweight="bold", color=edge, va="center", ha="left")
+        n = len(boxes)
+        bx0 = x0 + lab_w + 0.08
+        bw = (W - x0 - 0.05 - bx0 - (n - 1) * 0.05) / n
+        for i, t in enumerate(boxes):
+            bx = bx0 + i * (bw + 0.05)
+            ax.add_patch(FancyBboxPatch((bx, y + 0.05), bw, h - 0.1, boxstyle="round,pad=0,rounding_size=0.03",
+                                        fc="white", ec=edge, lw=0.7))
+            ax.text(bx + bw / 2, y + h / 2, t, fontsize=fs, ha="center", va="center", linespacing=1.1)
+        centers.append((y, h))
+        y -= gap
+    for (y1, h1), (y2, h2) in zip(centers[:-1], centers[1:]):
+        ax.annotate("", xy=(W / 2 + 0.25, y2 + h2), xytext=(W / 2 + 0.25, y1),
+                    arrowprops=dict(arrowstyle="-|>", color="#52514e", lw=0.9))
+    fig.savefig(out / "fig_pipeline.pdf")
+    plt.close(fig)
+
+
 def build_diagrams(cfg: dict, out: pathlib.Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
     fig_feeder(cfg, "ieee33", out)

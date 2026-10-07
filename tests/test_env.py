@@ -79,6 +79,22 @@ def test_energy_conservation(policy, q):
     assert abs(m["energy_requested_kwh"] - m["energy_delivered_kwh"] - m["unmet_kwh"]) < 1e-6 * m["energy_requested_kwh"]
 
 
+
+def test_trace_is_passive_and_consistent():
+    """The 60-s trace used for the operating-profile figure changes no result,
+    and its records add up to the episode's cost and curtailment."""
+    plain = run_policy_episode(ChargingEnv(CFG, "ieee33", q_control=True), Uncoordinated(), spec(240))
+    env = ChargingEnv(CFG, "ieee33", q_control=True)
+    env.trace = []
+    traced = run_policy_episode(env, Uncoordinated(), spec(240))
+    for k in ("cost_eur", "violation_rate_pct", "min_voltage_pu", "curtailed_kwh", "q_kvarh"):
+        assert traced[k] == plain[k]
+    assert len(env.trace) == env.n_steps
+    cost = sum(r["ev_kw"] * r["price_eur_kwh"] for r in env.trace) * env.dt_h
+    assert abs(cost - traced["cost_eur"]) < 1e-6 * max(1.0, traced["cost_eur"])
+    assert abs(sum(r["curtailed_kw"] for r in env.trace) * env.dt_h - traced["curtailed_kwh"]) < 1e-9
+    assert min(r["vmin_pu"] for r in env.trace) == traced["min_voltage_pu"]
+
 def test_full_vehicles_draw_nothing():
     """A vehicle never draws more energy than completes its need."""
     env = ChargingEnv(CFG, "ieee33", q_control=False)

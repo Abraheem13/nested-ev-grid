@@ -714,5 +714,45 @@
   "tune_plan_more_unmet": {
     "holds": true,
     "detail": "{\"S3\": {\"B\": 38.66351821761078, \"C\": 23.997465060699994, \"D\": 88.98715601897126}, \"S7\": {\"B\": 59.401499060114915, \"C\": 39.49676920240319, \"D\": 102.54907052118338}}"
+  },
+  "nested_lower_peak_feeder_than_unc_pa_S3": {
+    "holds": true,
+    "detail": ""
+  },
+  "tou_highest_peak_ev_S3": {
+    "holds": true,
+    "detail": ""
+  },
+  "hrl_lowest_peak_feeder_S3": {
+    "holds": true,
+    "detail": ""
+  },
+  "tou_l3_most_pf_S3": {
+    "holds": true,
+    "detail": ""
+  },
+  "profile_unc_l3_keeps_floor": {
+    "holds": true,
+    "detail": "0.9510"
+  },
+  "profile_unc_l3_no_curtailment": {
+    "holds": true,
+    "detail": ""
+  },
+  "profile_unc_violates": {
+    "holds": true,
+    "detail": ""
+  },
+  "profile_coordinated_no_l3": {
+    "holds": true,
+    "detail": ""
+  },
+  "profile_coordinated_above_floor": {
+    "holds": true,
+    "detail": ""
+  },
+  "profile_nested_peak_off_price_peak": {
+    "holds": true,
+    "detail": ""
   }
 }

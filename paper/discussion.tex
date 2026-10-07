@@ -1,8 +1,7 @@
 \subsection{Role of Learning}
 \label{sec:disc-learning}
-At nominal load, learning does not lower the energy bill relative to a
-well-designed rule: the price-aware heuristic, which executes the Level-2 plan
-per vehicle, is cheaper than the nested controller,% claim: pa_cheaper_than_nested_all_main
+At nominal load, learning does not beat a well-designed rule on cost: the
+price-aware heuristic is cheaper than the nested controller,% claim: pa_cheaper_than_nested_all_main
 \ and neither the learned prices nor the learned dispatch reduce cost relative
 to the plan (Table~\ref{tab:decomp}).% claim: decomp_nested_planprice_costlier_than_plan_S3
 % claim: decomp_nested_flatprice_costlier_than_plan_S3
@@ -21,25 +20,20 @@ handle the rest.
 
 \subsection{Scope of the Voltage Correction}
 Level~3 is corrective control on the simulated quasi-static state, not an a
-priori guarantee. It restores the floor whenever the reactive headroom of the
-plugged-in chargers suffices, and otherwise sheds EV power until the floor is
-met or the iteration limit is reached (Section~\ref{sec:method}). Three
-consequences follow. First, the inverter apparent-power rating sets the
-voltage margin: Section~\ref{sec:res-sens} reports the effect of $S_i$, and S7
-the behavior when the reactive capability is halved. Second, we assume, as
-in~\cite{leemput2015}, that a charger can supply reactive power at any active
-power, including when it does not charge; chargers without this capability
-offer only the curtailment fallback. Third, the floor is applied at the
-medium-voltage (\SI{12.66}{kV}) buses of the test feeders; drops in service transformers and
-secondary circuits are not modeled, and the correction acts at the 60-s
-resolution of the simulation, so switching transients and sub-cycle dynamics
-are outside its scope, as in any quasi-static study.
+priori guarantee: it restores the floor whenever the chargers' reactive
+headroom suffices and otherwise sheds EV power. Three points qualify it.
+First, the inverter rating sets the voltage margin
+(Section~\ref{sec:res-sens}, S7). Second, we assume, as in~\cite{leemput2015},
+that a charger supplies reactive power at any active power, including zero.
+Third, the floor is applied at the medium-voltage (\SI{12.66}{kV}) buses;
+service-transformer and secondary drops, switching transients and sub-cycle
+dynamics are outside the scope, as in any quasi-static study.
 
 \subsection{Assumptions and Limitations}
 \emph{Information.} The plan, the learned agents and the heuristic know each
-plugged-in vehicle's departure time and remaining need, as in managed-charging
-programs where drivers enter them~\cite{lee2019acn}. They do not know future
-arrivals. Only the LP-OPF reference sees the whole day in advance.
+plugged-in vehicle's departure and need, as in managed-charging programs where
+drivers enter them~\cite{lee2019acn}, but not future arrivals; only the LP-OPF
+sees the whole day.
 \emph{Network.} The feeders are balanced, radial and single-phase equivalent;
 unbalanced three-phase operation can change the voltage sensitivities on which
 the correction step relies.
@@ -47,8 +41,7 @@ the correction step relies.
 voltage layer does not depend on it, but the value of price signals does.
 \emph{Fleets.} The residential fleet is synthetic with stated parameters; the
 ACN experiments use recorded sessions from workplace sites.
-\emph{Data.} Household loads (Pecan Street, United States) and day-ahead prices
-(Netherlands) come from different systems; they provide realistic daily shapes,
-not a model of one particular utility. Training and test days share the
-base-load profile and differ in prices, fleets and noise. Adaptation to
-structural market change is not tested beyond the 2019 price regime.
+\emph{Data.} Loads (United States) and prices (Netherlands) come from
+different systems and give realistic daily shapes, not one utility; training
+and test days share the base-load profile. Structural market change is tested
+only through the 2019 regime.

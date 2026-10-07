@@ -39,7 +39,9 @@ python reproduce.py --jobs 8          # everything from the raw data (about 25 C
    (five seeds for the main comparison, three for ablations and generalization);
 5. calibrate the tariff level of every learned policy on training days;
 6. evaluate all methods on 50 held-out 2024 days;
-7. write every table, figure and number of the paper to `paper/generated/`,
+7. record the 60-s operating profile of one representative test day, fixed by
+   rule (`scripts/day_profile.py`; each run must reproduce its stored evaluation);
+8. write every table, figure and number of the paper to `paper/generated/`,
    compile `paper/main.pdf` and check it (`scripts/check_paper.py`).
 
 Every stage is resumable: finished jobs are skipped and interrupted training
@@ -73,7 +75,7 @@ training episodes, three evaluation days).
 | `src/nflev/eval/` | Paired evaluation, statistics, tables, figures, number macros and claims |
 | `scripts/` | Training, calibration, evaluation, model selection and paper checks |
 | `tests/` | Unit and regression tests |
-| `artifacts/` | Trained policies, training logs, evaluation results, model selection, provenance |
+| `artifacts/` | Trained policies, training logs, evaluation results, operating profiles, model selection, provenance |
 | `paper/` | LaTeX sources and the compiled paper |
 
 ## Data

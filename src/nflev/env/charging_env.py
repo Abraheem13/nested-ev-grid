@@ -57,6 +57,7 @@ class ChargingEnv:
         self.disagg = cfg["level2"].get("disaggregation", "llf")
         self.prior_mode = cfg["level2"].get("prior", "none")
         self.price_offset = 0.0         # tariff calibration of a learned policy (set by the policy)
+        self.trace = None               # list -> one record per 60-s step (scripts/day_profile.py)
 
     # ================================================================ reset
     def reset(self, spec: EpisodeSpec) -> None:
@@ -211,6 +212,7 @@ class ChargingEnv:
             np.add.at(p_bus, self.agg_bus, ev_kw / 1000.0)
             res = self.pf.solve(p_bus, q_bus)
             self.m["pf_solves"] += 1
+            vmin_pre, q_tot = res.vmin, 0.0
             shed = np.zeros(self.n_agg)
             if self.q_enabled:
                 conn_by_k = [drawn[(self.agg == k) & self.connected] for k in range(self.n_agg)]
@@ -218,6 +220,7 @@ class ChargingEnv:
                 res, shed = qr.res, qr.shed_frac
                 self.m["pf_solves"] += qr.iterations
                 if qr.activated:
+                    q_tot = float(qr.q_kvar.sum())
                     info["q_steps"] += 1
                     self.m["q_steps"] += 1
                     self.m["q_kvarh"] += float(qr.q_kvar.sum()) * self.dt_h
@@ -242,6 +245,10 @@ class ChargingEnv:
             self.m["vmin"] = min(self.m["vmin"], res.vmin)
             self.m["peak_ev_kw"] = max(self.m["peak_ev_kw"], float(eff_rate.sum()))
             self.m["peak_feeder_mw"] = max(self.m["peak_feeder_mw"], res.s_sub_mva.real)
+            if self.trace is not None:
+                self.trace.append({"hour": self.wall_hour(t), "price_eur_kwh": price, "ev_kw": float(eff_rate.sum()),
+                                   "vmin_pre_pu": float(vmin_pre), "vmin_pu": float(res.vmin), "q_kvar": q_tot,
+                                   "curtailed_kw": float((drawn - eff_rate).sum())})
             self.last_res = res
             self.t_step += 1
         if self.done:                                   # vehicles still plugged in at the end

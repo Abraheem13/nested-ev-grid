@@ -33,6 +33,7 @@ ORDER = RULE_ORDER + LEARN_ORDER + ["nested"]
 METRICS = ["cost_eur", "cost_per_kwh", "service_quality", "violation_rate_pct", "min_voltage_pu",
            "curtailed_kwh", "q_activation_pct", "peak_ev_kw", "retail_price_paid", "energy_delivered_kwh",
            "unmet_kwh"]
+EXTRA = ["q_kvarh", "peak_feeder_mw", "pf_solves"]   # grid-side means (no interval; RNG stream unchanged)
 
 
 # ------------------------------------------------------------------ loading
@@ -47,7 +48,7 @@ def per_day(df: pd.DataFrame) -> pd.DataFrame:
     """One row per (variant, method, scenario, fleet, network, split, episode):
     metrics averaged over training seeds."""
     keys = ["variant", "method", "scenario", "fleet", "network", "split", "episode"]
-    return df.groupby(keys, as_index=False)[METRICS].mean()
+    return df.groupby(keys, as_index=False)[METRICS + EXTRA].mean()
 
 
 def boot_ci(x: np.ndarray, rng: np.random.Generator) -> tuple[float, float, float]:
@@ -67,6 +68,8 @@ def summarise(d: pd.DataFrame) -> pd.DataFrame:
         r = dict(zip(["variant", "method", "scenario", "fleet", "network", "split"], k), n=len(g))
         for m in METRICS:
             r[m], r[m + "_lo"], r[m + "_hi"] = boot_ci(g[m].values, rng)
+        for m in EXTRA:
+            r[m] = float(g[m].mean())
         rows.append(r)
     return pd.DataFrame(rows)
 
@@ -341,6 +344,99 @@ def table_compute(art, path):
     return df
 
 
+def table_setup(cfg, calib, path):
+    """Simulation setup, read from configs/base.yaml, the calibration report and the
+    fleet module (cannot drift from the code)."""
+    from ..data.fleets import BATTERY_CLASSES_KWH, EPISODE_START_HOUR
+    fl, bh, rp, v = cfg["fleets"]["residential"], cfg["behavior"], cfg["reactive_power"], cfg["voltage"]
+    ag, sim, d = cfg["aggregators"], cfg["simulation"], cfg["data"]
+    yrs = lambda k: ", ".join(str(y) for y in d[k])  # noqa: E731
+    n = lambda mu, sd: f"$\\mathcal{{N}}({mu:g}, {sd:g}^2)$"  # noqa: E731
+    sc = {k: c["base_load_scale"] for k, c in calib.items()}
+    rows = [
+        ("Feeders", "IEEE 33-/69-bus, 12.66\\,kV, $V_0={:g}$\\,p.u., floor {:g}\\,p.u.".format(
+            cfg["network"]["substation_vm_pu"], v["v_min"])),
+        ("Aggregators", "buses {} (33-bus), {} (69-bus); {:g}\\,kW each; {} households".format(
+            ", ".join(map(str, ag["buses"]["ieee33"])), ", ".join(map(str, ag["buses"]["ieee69"])),
+            ag["transformer_cap_kw"], ag["households"])),
+        ("Base load", "Pecan Street profile, scale {} / {}, noise $\\sigma$ {:g}".format(
+            fmt(sc.get("ieee33", float("nan")), 2), fmt(sc.get("ieee69", float("nan")), 2), sim["load_noise_sigma"])),
+        ("Prices", f"ENTSO-E NL day-ahead; train {yrs('train_years')}, test {yrs('test_years')}, "
+                   f"regime {yrs('alt_regime_years')}"),
+        ("Arrival, dwell", f"{n(fl['arrival_mu_h'], fl['arrival_sigma_h'])}\\,h in "
+                           f"[{fl['arrival_min_h']:g}, {fl['arrival_max_h']:g}]; "
+                           f"{n(fl['dwell_mu_h'], fl['dwell_sigma_h'])}\\,h in [{fl['dwell_min_h']:g}, {fl['dwell_max_h']:g}]"),
+        ("SoC, battery", f"{n(fl['soc_init_mu'], fl['soc_init_sigma'])} to {n(fl['soc_target_mu'], fl['soc_target_sigma'])}; "
+                         + "/".join(f"{b:g}" for b in BATTERY_CLASSES_KWH) + "\\,kWh"),
+        ("Charger", f"{rp['charger_p_max_kw']:g}\\,kW, $\\eta$ {rp['charger_efficiency']:g}, $S_i$ {rp['s_rated_kva']:g}\\,kVA"),
+        ("Acceptance", f"$\\lambda^{{\\mathrm{{ref}}}}$ \\euro{bh['lambda_ref']:.2f}/kWh, $w^{{\\mathrm{{c}}}}_i$ "
+                       f"{n(*bh['w_cost'])}, $w^{{\\mathrm{{n}}}}_i$ {n(*bh['w_norm'])}, $b_i$ {n(*bh['bias'])}"),
+        ("Timing", "power flow {:g}\\,s, dispatch {:g}\\,min, pricing {:g}\\,h; day from {:02d}:00; "
+                   "look-ahead {}\\,h".format(sim["resolution_s"], sim["dispatch_interval_s"] / 60,
+                                              sim["pricing_interval_s"] / 3600, EPISODE_START_HOUR["residential"],
+                                              sim["price_lookahead_h"])),
+    ]
+    lines = [r"\begin{tabular}{@{}l>{\raggedright\arraybackslash}p{0.74\columnwidth}@{}}", r"\toprule",
+             r"Item & Value \\", r"\midrule"]
+    lines += [f"{a} & {b} \\\\" for a, b in rows]
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    path.write_text("\n".join(lines) + "\n")
+
+
+SCEN_TEXT = {"S1": "nominal", "S2": "nominal", "S3": "nominal (main case)", "S5": "nominal",
+             "S4": r"base load $\pm$15\% hourly", "S6": "no charging 19:00--20:00",
+             "S7": r"inverter rating $\times$0.5"}
+
+
+def table_scen_def(cfg, path):
+    hh = cfg["aggregators"]["households"]
+    lines = [r"\begin{tabular}{@{}lrrl@{}}", r"\toprule", r"Scenario & EVs & Pen.\ (\%) & Condition \\", r"\midrule"]
+    for sc, spec in cfg["evaluation"]["scenarios"].items():
+        lines.append(f"{sc} & {spec['n_ev']} & {round(100 * spec['n_ev'] / hh)} & {SCEN_TEXT.get(sc, '')} \\\\")
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    path.write_text("\n".join(lines) + "\n")
+
+
+GRID_METHODS = ["uncoordinated", "uncoordinated+L3", "tou+L3", "price_aware+L3", "lp_opf+L3", "hrl+L3", "nested"]
+
+
+def table_grid(s, path):
+    """Grid-side view of S3: peak loads, how often and how hard Level 3 acts, and the
+    power flows it costs."""
+    lines = [r"\begin{tabular}{@{}lrrrrrr@{}}", r"\toprule",
+             r"Method & Peak EV & Peak feeder & L3 act. & $Q$ energy & Curt. & PF \\",
+             r" & (kW) & (MW) & (\%) & (kvarh) & (kWh) & per day \\", r"\midrule"]
+    for m in GRID_METHODS:
+        r = row(s, "main", m, "S3")
+        if r is None:
+            continue
+        lines.append(f"{short_label(m)} & {fmt(r['peak_ev_kw'], 0)} & {fmt(r['peak_feeder_mw'], 2)} & "
+                     f"{fmt(r['q_activation_pct'], 2)} & {fmt(r['q_kvarh'], 1)} & {fmt(r['curtailed_kwh'], 1)} & "
+                     f"{fmt(r['pf_solves'], 0)} \\\\")
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    path.write_text("\n".join(lines) + "\n")
+
+
+def table_learned(s, spread, compute_df, path):
+    """Learned methods at S3: cost, its spread over training seeds, and training cost."""
+    names = {"nested": "nested", "flat": "flat_ddpg", "ppo": "ppo_lag", "cpo": "cpo", "hrl": "hrl"}
+    main = compute_df[(compute_df.fleet == "residential") & (compute_df.network == "ieee33")
+                      & (compute_df.ablation == "none")]
+    hours = main.assign(m=main.method.map(lambda x: names.get(x.split("_")[0], x))).groupby("m").total_h.mean()
+    sp = spread[(spread.variant == "main") & (spread.scenario == "S3") & (spread.fleet == "residential")
+                & (spread.network == "ieee33") & (spread.split == "test")].set_index("method").cost_eur
+    lines = [r"\begin{tabular}{@{}lrrrr@{}}", r"\toprule",
+             r"Method & Cost (\euro) & Seed s.d.\ (\euro) & SQ & Training (h) \\", r"\midrule"]
+    for m in ["flat_ddpg", "ppo_lag", "cpo", "hrl", "nested"]:
+        r = row(s, "main", m, "S3")
+        if r is None:
+            continue
+        lines.append(f"{label(m)} & {fmt(r['cost_eur'], 1)} & {fmt(sp.get(m, float('nan')), 1)} & "
+                     f"{fmt(r['service_quality'], 3)} & {fmt(hours.get(m, float('nan')), 2)} \\\\")
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    path.write_text("\n".join(lines) + "\n")
+
+
 DECOMP_ROWS = [("main", "price_aware+L3"), ("decomp", "plan+L3"), ("decomp", "nested-planprice"),
                ("decomp", "nested-flatprice"), ("main", "nested")]
 
@@ -532,6 +628,110 @@ def figures(s, d, art, out):
         fig.tight_layout(rect=(0, 0.12, 1, 1))
         fig.savefig(out / "fig_training.pdf", bbox_inches="tight")
         plt.close(fig)
+
+
+PROFILE = {  # method -> (label, colour, line style)
+    "uncoordinated": ("Uncoordinated", PAL[3], "--"),
+    "uncoordinated+L3": ("Uncoordinated + L3", "#8c6d1f", "-."),
+    "price_aware+L3": ("Price-aware heuristic + L3", PAL[1], "--"),
+    "nested": ("Nested (proposed)", PAL[0], "-"),
+}
+
+
+def load_profiles(art):
+    out = {}
+    for m in PROFILE:
+        f = art / "profiles" / f"S3__{m}.csv"
+        if f.exists():
+            t = pd.read_csv(f)
+            t["h"] = 12.0 + t.step / 60.0                 # hours since 00:00 of the first day
+            out[m] = t
+    return out
+
+
+def fig_profile(prof, out):
+    """60-s operating profile of the representative S3 day (scripts/day_profile.py)."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from .diagrams import FONT
+    plt.rcParams.update({**FONT, "font.size": 8, "axes.linewidth": 0.6, "axes.edgecolor": "#52514e",
+                         "xtick.color": "#52514e", "ytick.color": "#52514e"})
+    fig, ax = plt.subplots(1, 3, figsize=(7.16, 1.95), gridspec_kw={"width_ratios": [1.25, 1.15, 0.8]})
+    ticks = [12, 18, 24, 30, 36]
+    for m in ("uncoordinated", "price_aware+L3", "nested"):
+        if m in prof:
+            lab, col, ls = PROFILE[m]
+            ax[0].plot(prof[m].h, prof[m].ev_kw / 1000.0, color=col, ls=ls, lw=1.6 if m == "nested" else 1.0, label=lab)
+    if prof:
+        any_t = next(iter(prof.values()))
+        a2 = ax[0].twinx()
+        a2.step(any_t.h, any_t.price_eur_kwh, where="post", color=NEUTRAL, lw=0.8, label="Day-ahead price")
+        a2.set_ylabel("Price (€/kWh)", color=NEUTRAL)
+        a2.tick_params(axis="y", colors=NEUTRAL)
+        a2.spines[["top"]].set_visible(False)
+    ax[0].set_ylabel("EV charging power (MW)")
+    ax[0].set_title("(a) Charging power and price", fontsize=8, loc="left")
+    for m in ("uncoordinated", "uncoordinated+L3", "nested"):
+        if m in prof:
+            lab, col, ls = PROFILE[m]
+            ax[1].plot(prof[m].h, prof[m].vmin_pu, color=col, ls=ls, lw=1.6 if m == "nested" else 1.0, label=lab)
+    ax[1].axhline(0.95, color="#c00000", lw=0.7, ls=":")
+    ax[1].text(12.3, 0.9505, "0.95 p.u.", color="#c00000", fontsize=7, va="bottom")
+    ax[1].set_ylabel("Lowest bus voltage (p.u.)")
+    ax[1].set_title("(b) Lowest bus voltage", fontsize=8, loc="left")
+    if "uncoordinated+L3" in prof:
+        lab, col, ls = PROFILE["uncoordinated+L3"]
+        ax[2].fill_between(prof["uncoordinated+L3"].h, prof["uncoordinated+L3"].q_kvar, color=col, alpha=0.35, lw=0)
+        ax[2].plot(prof["uncoordinated+L3"].h, prof["uncoordinated+L3"].q_kvar, color=col, lw=0.8, label=lab)
+    ax[2].set_ylabel("Reactive power (kvar)")
+    ax[2].set_title("(c) Level-3 reactive power", fontsize=8, loc="left")
+    for a in ax:
+        tk = ticks if a is not ax[2] else [16, 18, 20, 22, 24]
+        a.set_xticks(tk, [f"{t % 24:02d}:00" for t in tk], fontsize=7)
+        a.set_xlim(tk[0], tk[-1])
+        a.grid(axis="y", lw=0.3, color="#d9d8d4")
+        a.spines[["top", "right"]].set_visible(False) if a is not ax[0] else a.spines[["top"]].set_visible(False)
+    handles, labels = [], []
+    for a in list(ax) + ([a2] if prof else []):
+        for h_, l_ in zip(*a.get_legend_handles_labels()):
+            if l_ not in labels:
+                handles.append(h_)
+                labels.append(l_)
+    fig.legend(handles, labels, loc="lower center", ncol=5, frameon=False, fontsize=7, bbox_to_anchor=(0.5, 0.0),
+               handlelength=2.4, columnspacing=1.4)
+    fig.tight_layout(rect=(0, 0.1, 1, 1), w_pad=1.2)
+    fig.savefig(out / "fig_profile.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+
+def profile_numbers(prof, N, C):
+    if not prof:
+        return
+    t0 = next(iter(prof.values()))
+    N.add("profile day", pd.Timestamp(t0.day.iloc[0]).strftime("%-d %B %Y"), 0)
+    for m, t in prof.items():
+        N.add(f"profile peak {m}", t.ev_kw.max(), 0)
+        N.add(f"profile vmin {m}", t.vmin_pu.min(), 3)
+        N.add(f"profile cost {m}", float((t.ev_kw * t.price_eur_kwh).sum() / 60.0), 1)
+    if "uncoordinated+L3" in prof:
+        u = prof["uncoordinated+L3"]
+        N.add("profile vmin pre unc l3", u.vmin_pre_pu.min(), 3)
+        N.add("profile q max", u.q_kvar.max(), 0)
+        N.add("profile q steps", int((u.q_kvar > 0).sum()), 0)
+        N.add("profile q steps pct", 100.0 * (u.q_kvar > 0).mean(), 1)
+        C.add("profile_unc_l3_keeps_floor", u.vmin_pu.min() >= 0.95 - 1e-9, f"{u.vmin_pu.min():.4f}")
+        C.add("profile_unc_l3_no_curtailment", float(u.curtailed_kw.sum()) == 0.0)
+    if "uncoordinated" in prof:
+        C.add("profile_unc_violates", prof["uncoordinated"].vmin_pu.min() < 0.95)
+    co = [m for m in ("nested", "price_aware+L3") if m in prof]
+    if co:
+        C.add("profile_coordinated_no_l3", all((prof[m].q_kvar > 0).sum() == 0 for m in co))
+        C.add("profile_coordinated_above_floor", all(prof[m].vmin_pu.min() >= 0.95 for m in co))
+    if "nested" in prof and "uncoordinated" in prof:
+        C.add("profile_nested_peak_off_price_peak",
+              prof["nested"].price_eur_kwh[prof["nested"].ev_kw.idxmax()] <
+              prof["uncoordinated"].price_eur_kwh[prof["uncoordinated"].ev_kw.idxmax()])
 
 
 # ------------------------------------------------------------------ numbers
@@ -939,6 +1139,23 @@ def numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg, raw=None, spread=None
                           & (compute_df.fleet == "residential") & (compute_df.network == "ieee33")]
         if len(nest):
             N.add("train hours nested", nest.total_h.mean(), 1)
+    # grid side at S3: peaks and the power-flow cost of Level 3
+    g = {m: get(m, "S3") for m in GRID_METHODS}
+    if all(v is not None for v in g.values()):
+        nst, unc, pa = g["nested"], g["uncoordinated"], g["price_aware+L3"]
+        N.add("peak feeder red nested unc S3", 100 * (1 - nst["peak_feeder_mw"] / unc["peak_feeder_mw"]), 0)
+        N.add("peak feeder red nested pa S3", 100 * (1 - nst["peak_feeder_mw"] / pa["peak_feeder_mw"]), 0)
+        C.add("nested_lower_peak_feeder_than_unc_pa_S3",
+              nst["peak_feeder_mw"] < min(unc["peak_feeder_mw"], pa["peak_feeder_mw"]))
+        C.add("tou_highest_peak_ev_S3", max(g, key=lambda m: g[m]["peak_ev_kw"]) == "tou+L3")
+        C.add("hrl_lowest_peak_feeder_S3", min(g, key=lambda m: g[m]["peak_feeder_mw"]) == "hrl+L3")
+        base_pf = unc["pf_solves"]
+        over = {m: 100 * (g[m]["pf_solves"] / base_pf - 1) for m in GRID_METHODS if m != "uncoordinated"}
+        N.add("pf base S3", base_pf, 0)
+        N.add("pf overhead nested S3", over["nested"], 1, rnd="up")
+        N.add("pf overhead max S3", max(over.values()), 1, rnd="up")
+        C.add("tou_l3_most_pf_S3", max(over, key=over.get) == "tou+L3")
+    profile_numbers(load_profiles(art), N, C)
     N.write(out / "numbers.tex")
     C.write(out / "claims.json")
     return N
@@ -977,9 +1194,18 @@ def build_all(art: pathlib.Path, out: pathlib.Path) -> None:
     table_sensitivity(s, out / "tab_sensitivity.tex")
     table_decomp(s, out / "tab_decomp.tex")
     compute_df = table_compute(art, out / "tab_compute.tex")
+    calib = json.loads((art / "calibration.json").read_text()) if (art / "calibration.json").exists() else {}
+    table_setup(cfg, calib, out / "tab_setup.tex")
+    table_scen_def(cfg, out / "tab_scen_def.tex")
+    table_grid(s, out / "tab_grid.tex")
+    table_learned(s, spread, compute_df, out / "tab_learned.tex")
     figures(s, d, art, out)
+    fig_profile(load_profiles(art), out)
     from .diagrams import build_diagrams
     table_hyper(cfg, out / "tab_hyper.tex")
     build_diagrams(cfg, out)
+    from .diagrams import fig_pipeline
+    fig_pipeline(cfg, out, len(list((art / "runs").glob("nested_residential_ieee33_none_s*"))),
+                 len(list((art / "runs").glob("nested_residential_ieee33_no_l1_s*"))))
     numbers(s, d, t_cost, t_sq, compute_df, art, out, cfg, raw=df, spread=spread)
     print(f"== analysis: tables, figures and numbers written to {out}")

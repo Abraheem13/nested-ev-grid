@@ -1,0 +1,15 @@
+\begin{tabular}{@{}l>{\raggedright\arraybackslash}p{0.74\columnwidth}@{}}
+\toprule
+Item & Value \\
+\midrule
+Feeders & IEEE 33-/69-bus, 12.66\,kV, $V_0=1.03$\,p.u., floor 0.95\,p.u. \\
+Aggregators & buses 6, 12, 18, 25, 30 (33-bus), 9, 21, 35, 49, 61 (69-bus); 500\,kW each; 300 households \\
+Base load & Pecan Street profile, scale 0.78 / 0.75, noise $\sigma$ 0.02 \\
+Prices & ENTSO-E NL day-ahead; train 2023, test 2024, regime 2019 \\
+Arrival, dwell & $\mathcal{N}(18, 2^2)$\,h in [12, 23.5]; $\mathcal{N}(12, 3^2)$\,h in [2, 16] \\
+SoC, battery & $\mathcal{N}(0.35, 0.15^2)$ to $\mathcal{N}(0.85, 0.1^2)$; 40/60/75/100\,kWh \\
+Charger & 11\,kW, $\eta$ 0.95, $S_i$ 12\,kVA \\
+Acceptance & $\lambda^{\mathrm{ref}}$ \euro0.20/kWh, $w^{\mathrm{c}}_i$ $\mathcal{N}(5, 1^2)$, $w^{\mathrm{n}}_i$ $\mathcal{N}(2, 0.5^2)$, $b_i$ $\mathcal{N}(0, 0.5^2)$ \\
+Timing & power flow 60\,s, dispatch 15\,min, pricing 1\,h; day from 12:00; look-ahead 12\,h \\
+\bottomrule
+\end{tabular}

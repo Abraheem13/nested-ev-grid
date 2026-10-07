@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One-click reproduction of every number, table and figure in the paper.
 
-    python reproduce.py                 # everything (data -> tests -> model selection -> train -> calibrate -> eval -> paper)
+    python reproduce.py                 # everything (data -> tests -> model selection -> train -> calibrate -> eval -> profile -> paper)
     python reproduce.py --jobs 8        # parallel workers (default: CPU count)
     python reproduce.py --from-results  # only regenerate tables/figures/numbers from artifacts/
     python reproduce.py --quick         # short functional check: 1 seed, 30 training episodes, 3 eval days
@@ -10,6 +10,7 @@ Every stage is resumable: a job whose output already exists is skipped
 (--force re-runs). Outputs:
     artifacts/runs/<run>/model.pt, train_log.csv   trained policies
     artifacts/eval/<job>.csv                       one row per evaluation episode
+    artifacts/profiles/*.csv                       60-s operating profile of one representative day
     artifacts/provenance.json                      git commit, config hash, versions
     paper/generated/                               tables (*.tex), numbers.tex, figures (*.pdf)
     paper/main.pdf                                 if a LaTeX engine is installed
@@ -242,6 +243,9 @@ def main():
         run_all(train_jobs(seeds, tr_eps), a.jobs, a.force, "train")
         run_all(calib_jobs(seeds, tr_eps), a.jobs, a.force, "calibrate tariffs")
         run_all(eval_jobs(seeds, ev_eps), a.jobs, a.force, "evaluate")
+        if not a.quick and (a.force or not (ART / "profiles" / "S3__nested.csv").exists()):
+            print("== operating profile of a representative day (scripts/day_profile.py)", flush=True)
+            subprocess.run([PY, "scripts/day_profile.py"], cwd=ROOT, check=True)
         (ART / "provenance.json").write_text(json.dumps(provenance(), indent=2))
     from nflev.eval.analysis import build_all
     build_all(ART, ROOT / "paper" / "generated")
