@@ -96,6 +96,8 @@ def check(tex_path: pathlib.Path = PAPER / "main.tex") -> list[str]:
     import_cmds = set(re.findall(r"\\DeclareMathOperator\{\\([A-Za-z]+)\}", tex))
     used = set(re.findall(r"\\(G[A-Z][A-Za-z]*)\b", tex))         # generated macros carry a G prefix
     errs += [f"generated macro not defined: \\{m}" for m in sorted(used - defined - local - import_cmds)]
+    undefined_value = set(re.findall(r"\\newcommand\{\\([A-Za-z]+)\}\{nan\}", numbers.read_text())) if numbers.exists() else set()
+    errs += [f"generated macro has no defined value: \\{m}" for m in sorted(used & undefined_value)]
 
     for f in re.findall(r"\\input\{([^}]+)\}", tex):
         p = PAPER / (f if f.endswith(".tex") else f + ".tex")

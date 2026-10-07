@@ -154,6 +154,8 @@ class Numbers:
         if name in self.names:
             raise ValueError(f"duplicate macro {name}")
         self.names.add(name)
+        if not isinstance(value, str) and not math.isfinite(float(value)):
+            value = "nan"                              # undefined (e.g. a spread over one seed); check_paper rejects its use
         if rnd != "nearest" and not isinstance(value, str):
             f = 10 ** nd
             value = (math.ceil(value * f - 1e-9) if rnd == "up" else math.floor(value * f + 1e-9)) / f

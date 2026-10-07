@@ -257,4 +257,4 @@ def save_checked(fig, path: pathlib.Path, **kw) -> None:
     probs = layout_problems(fig)
     if probs:
         raise RuntimeError(f"{path.name}: overlapping text: " + "; ".join(probs))
-    fig.savefig(path, **kw)
+    fig.savefig(path, metadata={"CreationDate": None}, **kw)   # no timestamp: rebuilt files are identical
