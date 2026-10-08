@@ -1,4 +1,4 @@
-# Nested Multi-Timescale Learning and Control for Voltage-Aware EV Charging Coordination
+# Three-Timescale EV Charging Control With Learned Pricing and Charger-Based Voltage Support
 
 Code, data pipeline, trained policies and paper sources for the article by
 Abraheem Rashid, Faisal Iradat, Waseem Iqbal and Yawar Abbas Bangash
