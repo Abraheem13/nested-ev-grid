@@ -2,8 +2,9 @@
 % qualitative statement tagged "% claim: <name>" is checked against
 % generated/claims.json by scripts/check_paper.py.
 
-We compare all methods in the main case and on the grid side, vary the
-penetration, test significance, and then stress and dissect the controller.
+We compare all methods in the main case and on the grid side, then vary the
+penetration and test significance, then stress the controller and dissect it,
+and finally test its transfer to other feeders, fleets and years.
 
 \begin{table*}[t]
 \centering
@@ -13,7 +14,7 @@ penetration, test significance, and then stress and dissect the controller.
 \input{generated/tab_main_s3.tex}
 \end{table*}
 
-\subsection{Main Comparison}
+\subsection{Main Comparison and Grid Impact}
 \label{sec:res-main}
 The main case, \GPenSThree\% penetration on the 33-bus feeder (S3), is compared in
 Table~\ref{tab:main}. Uncoordinated charging costs
@@ -51,8 +52,6 @@ learned controller,
 \label{fig:profile}
 \end{figure*}
 
-\subsection{Grid Impact and Daily Operation}
-\label{sec:res-grid}
 For a distribution operator, peaks and corrective effort matter as much as
 cost; Table~\ref{tab:grid} views S3 from this side. The nested controller lowers
 the mean daily peak of the feeder load by \GPeakFeederRedNestedUncSThree\%
@@ -65,8 +64,7 @@ the highest EV peak.% claim: tou_highest_peak_ev_S3
 \ Level~3 is cheap to run: it adds \GPfOverheadNestedSThree\% to the
 \GPfBaseSThree{} power flows per day of the nested controller and at most
 \GPfOverheadMaxSThree\% for any method (the TOU timer).% claim: tou_l3_most_pf_S3
-
-Fig.~\ref{fig:profile} shows one representative test day. Uncoordinated
+\ Fig.~\ref{fig:profile} shows one representative test day. Uncoordinated
 charging starts on arrival and peaks at a higher price than the nested
 controller,% claim: profile_nested_peak_off_price_peak
 \ and drops the lowest bus voltage to \GProfileVminUncoordinated~p.u.% claim: profile_unc_violates
@@ -80,8 +78,6 @@ injection;% claim: profile_coordinated_no_l3
 % claim: profile_coordinated_above_floor
 \ their energy costs that day are \euro\GProfileCostPriceAwareLThree{} and
 \euro\GProfileCostNested, against \euro\GProfileCostUncoordinated.
-
-
 
 \begin{table*}[t]
 \centering
@@ -100,7 +96,7 @@ injection;% claim: profile_coordinated_no_l3
 \label{fig:scenarios}
 \end{figure*}
 
-\subsection{Penetration and Base-Load Deviation}
+\subsection{Penetration, Base-Load Deviation and Statistical Comparison}
 \label{sec:res-scen}
 Whether these results hold as more vehicles connect is shown by
 Table~\ref{tab:scenarios} and Fig.~\ref{fig:scenarios}, which extend the comparison
@@ -120,7 +116,6 @@ charging and \GGapNestedPaMin\%--\GGapNestedPaMax\% more than the price-aware
 heuristic, and it stays below every learned baseline by at least
 \GSavingNestedBestLearnedMin\%.% claim: nested_cheapest_learned_main
 
-
 \begin{table}[t]
 \centering
 \caption{Paired Comparison at S3 With the Baselines With Level~3 ($\Delta$: Nested Minus Baseline, 95\% Bootstrap Interval; Days: Days of \GEvalDays{} on Which Nested Is Cheaper; Wilcoxon Tests, Holm Over \GHolmFamily{} Comparisons per Metric)}
@@ -130,8 +125,6 @@ heuristic, and it stays below every learned baseline by at least
 \input{generated/tab_stats.tex}
 \end{table}
 
-\subsection{Statistical Comparison}
-\label{sec:res-stats}
 Differences of a few percent need a significance test. Table~\ref{tab:stats}
 compares like with like: every baseline has Level~3
 attached. Without it, the mean differences change by at most
@@ -169,7 +162,7 @@ baselines.% claim: seed_std_nested_smallest_S3
 \input{generated/tab_stress.tex}
 \end{table}
 
-\subsection{Level~3 Under Stress}
+\subsection{Stress Tests and Contribution of the Learned Levels}
 \label{sec:res-stress}
 Two stress tests probe the limits of Level~3. In S6, after an hour without
 charging in the evening peak, every controller
@@ -185,7 +178,6 @@ except the perfect-foresight LP-OPF keep some violations.% claim: s7_only_lp_zer
 \ The price is energy cost: \euro\GNestedSSevenCost{} against
 \euro\GPriceAwareLThreeSSevenCost{} per day.% claim: pa_cheaper_than_nested_S7
 
-
 \begin{table}[t]
 \centering
 \caption{Contribution of the Learned Levels (Level~3 Active). Plan: Planning Prior Without Learning; Prices Only: Learned Prices, Plan Dispatch; Dispatch Only: Learned Dispatch, Flat Tariff. Units as in Table~\ref{tab:stress}}
@@ -195,8 +187,6 @@ except the perfect-foresight LP-OPF keep some violations.% claim: s7_only_lp_zer
 \input{generated/tab_decomp.tex}
 \end{table}
 
-\subsection{Contribution of the Learned Levels}
-\label{sec:res-decomp}
 To see where these differences come from, Table~\ref{tab:decomp} separates
 the learned levels (Level~3 active).
 Executed without learning, the plan costs
@@ -228,7 +218,7 @@ undelivered than the per-vehicle heuristic in S7,% claim: plan_less_unmet_than_p
 \input{generated/tab_ablation.tex}
 \end{table}
 
-\subsection{Ablations}
+\subsection{Ablations, Generalization and Level-3 Parameters}
 \label{sec:res-abl}
 Each component is then removed in turn (Table~\ref{tab:ablation}); a cost difference
 is called resolved when the per-seed means (\GAuxSeedsWord{} seeds) do not
@@ -279,8 +269,6 @@ steps,% claim: abl_no_l3_violates_S3
 \input{generated/tab_general.tex}
 \end{table}
 
-\subsection{Generalization}
-\label{sec:res-gen}
 To test transfer beyond the training setting, Table~\ref{tab:general} repeats
 S3 on the 69-bus feeder, on recorded sessions
 from two workplace sites and on 2019 days (with the policies trained on 2023
@@ -297,8 +285,6 @@ charging has no violations at Caltech% claim: gen_unc_zero_viol_acn_caltech
 share of the requested energy than in any other setting (service quality at
 most \GGenSqCaltechMax).% claim: gen_caltech_sq_lowest_all
 
-\subsection{Level~3 Parameters}
-\label{sec:res-sens}
 Finally, Level~3 has two parameters. Varying the correction margin
 ($\delta=0.0005$, $0.001$ and $0.002\pu$) and
 the inverter rating ($S_i=10$, 12 and \SI{14}{kVA}, where \SI{10}{kVA}

@@ -20,5 +20,22 @@ energy-cost change of at most \GLThreeCostChangeMax\%;% claim: l3_negligible_cos
 % claim: l3_zero_viol_rules_nominal
 % claim: l3_zero_viol_learned_nominal
 \ it belongs in every comparison. Second, learned dispatch pays off when it
-starts from a sound plan and grid stress binds. Future work includes unbalanced
-feeders, uncertain departures and field validation.
+starts from a sound plan and grid stress binds.
+
+Several directions follow from the limitations stated above. The feeder model
+should be extended to unbalanced three-phase networks with service
+transformers and secondary circuits, where the voltage floor is usually
+binding first and where phase unbalance changes the sensitivities that
+Level~3 measures. The information assumption should be relaxed by learning
+under uncertain departures and needs, for instance from driver-entered
+estimates with recorded error distributions, and by forecasting arrivals.
+The stylized acceptance model should be replaced or calibrated with recorded
+driver responses to dynamic tariffs, since the value of the price level
+depends on it. Because learning did not lower the energy cost at nominal
+load, a lighter design that keeps the plan, the least-laxity-first allocation
+and Level~3 but drops the learned levels deserves a direct comparison on cost,
+robustness and implementation effort. Finally, vehicle-to-grid active power
+and the interaction with on-load tap changers and capacitor banks widen the
+set of corrective actions, and a hardware-in-the-loop or field trial is
+needed before any run-time claim about the voltage layer can be made for a
+real feeder.

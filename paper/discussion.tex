@@ -1,8 +1,6 @@
 Some conclusions are firmer than others; we discuss what learning
 contributes, where the voltage correction applies and what limits the findings.
 
-\subsection{Role of Learning}
-\label{sec:disc-learning}
 At nominal load, learning does not beat a well-designed rule on cost: the
 price-aware heuristic is cheaper than the nested controller,% claim: pa_cheaper_than_nested_all_main
 \ and neither the learned prices nor the learned dispatch reduce cost relative
@@ -19,20 +17,22 @@ S5).% claim: abl_abl_no_prior_costlier_S3
 % claim: abl_abl_no_prior_costlier_S5
 \ The nested design is therefore not a way to beat optimization on cost but a
 way to keep learned components where they help while planning and physics
-handle the rest.
+handle the rest. We state this plainly because it is the finding most likely
+to be misread: the value of the controller lies in keeping the floor at every
+penetration tested, in its small spread over training seeds and in its
+behavior under stress, not in a lower energy bill than the heuristic.
 
-\subsection{Scope of the Voltage Correction}
 Level~3 is corrective control on the simulated quasi-static state, not an a
 priori guarantee: it restores the floor whenever the chargers' reactive
 headroom suffices and otherwise sheds EV power. Three points qualify it.
 First, the inverter rating sets the voltage margin
-(Section~\ref{sec:res-sens}, S7). Second, we assume, as in~\cite{leemput2015},
+(Section~\ref{sec:res-abl}, S7). Second, we assume, as in~\cite{leemput2015},
 that a charger supplies reactive power at any active power, including zero.
 Third, the floor is applied at the medium-voltage (\SI{12.66}{kV}) buses;
 service-transformer and secondary drops, switching transients and sub-cycle
 dynamics are outside the scope, as in any quasi-static study.
 
-\subsection{Assumptions and Limitations}
+The remaining assumptions bound the generality of the results.
 \emph{Information:} the plan, the learned agents and the heuristic know each
 plugged-in vehicle's departure and need, as in managed-charging programs where
 drivers enter them~\cite{lee2019acn}, but not future arrivals.
