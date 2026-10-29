@@ -25,7 +25,7 @@
 \title{Three-Timescale Nested Control of Residential EV Charging: Learned Pricing and Dispatch With Voltage Support From Charger Reactive Power}
 
 \author{Abraheem~Rashid, Faisal~Iradat, Waseem~Iqbal, and~Yawar~Abbas~Bangash%
-\thanks{(Corresponding author: Yawar Abbas Bangash.)}%
+\thanks{(Corresponding author: Waseem Iqbal.)}%
 \thanks{A.~Rashid is with the Department of Computer Science, Brunel University London,
 London, U.K. (e-mail: 2546393@brunel.ac.uk).}%
 \thanks{F.~Iradat is with the Department of Computer Science, Institute of Business
@@ -60,7 +60,7 @@ controller costs \GSavingNestedUncSThree\% less than uncoordinated charging at
 \ but \GGapNestedPaSThree\% more than a price-aware heuristic.% claim: pa_cheaper_than_nested_all_main
 \ Ablations attribute the cost gains to the planning prior% claim: abl_abl_no_prior_seed_separated_S3
 \ and the absence of violations to the voltage layer.% claim: ablation_violates_S3
-\ Attached to any baseline, it removes all
+\ Attached to any baseline, the voltage layer removes all
 violations up to \GPenSFive\% penetration whenever the base load alone respects
 the floor.% claim: l3_zero_viol_rules_nominal
 % claim: l3_zero_viol_learned_nominal
@@ -98,8 +98,9 @@ per-vehicle charging rates that minimize the day-ahead energy cost of the
 fleet, while every bus voltage stays at or above the floor, every charger and
 aggregator transformer stays within its rating, every vehicle leaves charged
 whenever its dwell allows it, and the mean retail price paid stays at the flat
-tariff that the drivers would otherwise pay (revenue neutrality). Four
-properties of this problem shape our design. First, its inputs change at
+tariff that the drivers would otherwise pay (revenue neutrality). Three
+properties of this problem shape our design, and a fourth shapes its
+evaluation. First, its inputs change at
 different rates: prices change hourly, the plugged-in fleet and its needs
 change every few minutes, and bus voltages change within seconds, so a single
 decision interval fits none of them well. Second, voltage safety is a
@@ -232,7 +233,7 @@ element-wise conjugation and $Z^{\mathrm{path}}_{nm}$ is the impedance of the
 path shared by buses $n$ and $m$ from the substation. We solve~\eqref{eq:pf}
 every \SI{60}{s} by the backward/forward sweep~\cite{shirmohammadi1988} to
 $10^{-10}\pu$; our tests match pandapower's Newton--Raphson
-solution~\cite{thurner2018} to $10^{-8}\pu$.
+solution~\cite{thurner2018} to $10^{-8}\pu$ on both feeders.
 
 \begin{table}[t]
 \centering
